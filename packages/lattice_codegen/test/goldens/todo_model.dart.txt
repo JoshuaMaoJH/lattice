@@ -3,8 +3,6 @@
 // Plain immutable data classes — no annotations, no build_runner, nothing to
 // re-run after ejecting.
 
-import 'package:flutter/foundation.dart';
-
 final class Todo {
   const Todo({
     required this.id,
@@ -60,7 +58,7 @@ final class Todo {
       other.id == id &&
       other.title == title &&
       other.done == done &&
-      listEquals(other.tags, tags) &&
+      _listEquals(other.tags, tags) &&
       other.dueAt == dueAt;
 
   @override
@@ -69,4 +67,13 @@ final class Todo {
   @override
   String toString() =>
       'Todo(id: $id, title: $title, done: $done, tags: $tags, dueAt: $dueAt)';
+}
+
+bool _listEquals<T>(List<T>? a, List<T>? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null || a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

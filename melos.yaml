@@ -19,6 +19,10 @@ scripts:
     description: Unit tests for the pure-Dart packages.
     run: melos exec --dir-exists=test --no-flutter -- dart test
 
+  test:server:
+    description: Server generation tests.
+    run: cd packages/lattice_server_gen && dart test
+
   test:runtime:
     description: Widget and reactivity tests for the runtime.
     run: cd packages/lattice_runtime && flutter test
@@ -41,6 +45,7 @@ scripts:
       melos run format:check && \
       melos run analyze && \
       melos run test && \
+      melos run test:server && \
       melos run test:runtime && \
       melos run test:editor && \
       melos run example:counter

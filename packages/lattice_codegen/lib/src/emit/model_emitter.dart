@@ -12,27 +12,80 @@ class ModelEmitter {
   const ModelEmitter();
 
   String emit(List<DataModelDef> models) {
-    // `listEquals` / `mapEquals` come from Flutter's foundation library, so
-    // deep equality costs no extra dependency — but the import is only pulled
-    // in when a model actually has a collection field.
-    final needsDeepEquality = models.any(
-      (m) => m.fields.any((f) => _isCollection(f.type)),
+    // Deep comparison is done by two helpers emitted into this file rather
+    // than imported, so the models file has no dependencies at all and can be
+    // shared verbatim with a generated server, which has no Flutter (§7.7).
+    // Emitted only where used: an unused private function is a diagnostic in
+    // the generated project, and G2 asks for none.
+    final needsList = models.any(
+      (m) => m.fields.any((f) => _isKind(f.type, list: true)),
+    );
+    final needsMap = models.any(
+      (m) => m.fields.any((f) => _isKind(f.type, list: false)),
     );
     final library = Library(
       (b) => b
-        ..directives.addAll([
-          if (needsDeepEquality)
-            Directive.import('package:flutter/foundation.dart'),
-        ])
-        ..body.addAll([for (final model in models) _class(model)]),
+        // No imports at all: models are shared verbatim between the client
+        // and a generated server (§7.7), and the server has no Flutter. The
+        // two comparison helpers below are cheaper than a dependency.
+        ..body.addAll([
+          for (final model in models) _class(model),
+          if (needsList) _listEqualsHelper(),
+          if (needsMap) _mapEqualsHelper(),
+        ]),
     );
     return '$_header\n${library.accept(newEmitter())}';
   }
 
-  /// Whether [type] needs element-wise comparison rather than `==`.
-  static bool _isCollection(LatticeType type) => switch (type) {
-        ListType() || MapType() => true,
-        NullableType(:final inner) => _isCollection(inner),
+  Spec _listEqualsHelper() => Method(
+        (m) => m
+          ..name = '_listEquals'
+          ..returns = refer('bool')
+          ..types.add(refer('T'))
+          ..requiredParameters.addAll([
+            Parameter((p) => p
+              ..name = 'a'
+              ..type = refer('List<T>?')),
+            Parameter((p) => p
+              ..name = 'b'
+              ..type = refer('List<T>?')),
+          ])
+          ..body = const Code('''
+if (identical(a, b)) return true;
+if (a == null || b == null || a.length != b.length) return false;
+for (var i = 0; i < a.length; i++) {
+  if (a[i] != b[i]) return false;
+}
+return true;'''),
+      );
+
+  Spec _mapEqualsHelper() => Method(
+        (m) => m
+          ..name = '_mapEquals'
+          ..returns = refer('bool')
+          ..types.addAll([refer('K'), refer('V')])
+          ..requiredParameters.addAll([
+            Parameter((p) => p
+              ..name = 'a'
+              ..type = refer('Map<K, V>?')),
+            Parameter((p) => p
+              ..name = 'b'
+              ..type = refer('Map<K, V>?')),
+          ])
+          ..body = const Code('''
+if (identical(a, b)) return true;
+if (a == null || b == null || a.length != b.length) return false;
+for (final entry in a.entries) {
+  if (!b.containsKey(entry.key) || b[entry.key] != entry.value) return false;
+}
+return true;'''),
+      );
+
+  /// Whether [type] needs element-wise comparison, and of which kind.
+  static bool _isKind(LatticeType type, {required bool list}) => switch (type) {
+        ListType() => list,
+        MapType() => !list,
+        NullableType(:final inner) => _isKind(inner, list: list),
         _ => false,
       };
 
@@ -195,10 +248,10 @@ class ModelEmitter {
   static String _compare(FieldDef field) {
     final name = field.name;
     return switch (field.type) {
-      ListType() => 'listEquals(other.$name, $name)',
-      MapType() => 'mapEquals(other.$name, $name)',
-      NullableType(inner: ListType()) => 'listEquals(other.$name, $name)',
-      NullableType(inner: MapType()) => 'mapEquals(other.$name, $name)',
+      ListType() => '_listEquals(other.$name, $name)',
+      MapType() => '_mapEquals(other.$name, $name)',
+      NullableType(inner: ListType()) => '_listEquals(other.$name, $name)',
+      NullableType(inner: MapType()) => '_mapEquals(other.$name, $name)',
       _ => 'other.$name == $name',
     };
   }

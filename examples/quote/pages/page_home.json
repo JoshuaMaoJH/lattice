@@ -1,0 +1,408 @@
+{
+  "id": "page_home",
+  "name": "Quote",
+  "route": "/",
+  "isHome": true,
+  "hierarchy": {
+    "id": "w_root",
+    "type": "Scaffold",
+    "props": {
+      "appBar": {
+        "id": "w_appbar",
+        "type": "AppBar",
+        "props": {
+          "title": {
+            "id": "w_title",
+            "type": "Text",
+            "props": {
+              "data": "Quote"
+            }
+          }
+        }
+      }
+    },
+    "children": [
+      {
+        "id": "w_pad",
+        "type": "Padding",
+        "props": {
+          "padding": 24
+        },
+        "children": [
+          {
+            "id": "w_col",
+            "type": "Column",
+            "props": {
+              "crossAxisAlignment": "stretch",
+              "mainAxisSize": "min"
+            },
+            "children": [
+              {
+                "id": "w_sku",
+                "type": "TextField",
+                "props": {
+                  "hintText": "PRO-1, LITE-2, BASIC-3",
+                  "labelText": "SKU",
+                  "onChanged": {
+                    "$event": "ev_sku"
+                  },
+                  "text": {
+                    "$bind": "n_sku.value"
+                  }
+                }
+              },
+              {
+                "id": "w_gap1",
+                "type": "SizedBox",
+                "props": {
+                  "height": 12
+                }
+              },
+              {
+                "id": "w_qty",
+                "type": "TextField",
+                "props": {
+                  "keyboardType": "number",
+                  "labelText": "Quantity",
+                  "onChanged": {
+                    "$event": "ev_qty"
+                  }
+                }
+              },
+              {
+                "id": "w_gap2",
+                "type": "SizedBox",
+                "props": {
+                  "height": 20
+                }
+              },
+              {
+                "id": "w_go",
+                "type": "ElevatedButton",
+                "props": {
+                  "onPressed": {
+                    "$event": "ev_fetch"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_go_label",
+                    "type": "Text",
+                    "props": {
+                      "data": "Get a price"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "w_gap3",
+                "type": "SizedBox",
+                "props": {
+                  "height": 24
+                }
+              },
+              {
+                "id": "w_if_loading",
+                "type": "If",
+                "props": {
+                  "condition": {
+                    "$bind": "n_loading.value"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_spinner",
+                    "type": "CircularProgressIndicator"
+                  }
+                ]
+              },
+              {
+                "id": "w_if_error",
+                "type": "If",
+                "props": {
+                  "condition": {
+                    "$bind": "n_hasError.out"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_error",
+                    "type": "Text",
+                    "props": {
+                      "data": {
+                        "$bind": "n_errorText.out"
+                      },
+                      "style": {
+                        "color": "#B3261E"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "w_if_quote",
+                "type": "If",
+                "props": {
+                  "condition": {
+                    "$bind": "n_hasQuote.out"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_result",
+                    "type": "Column",
+                    "props": {
+                      "crossAxisAlignment": "start",
+                      "mainAxisSize": "min"
+                    },
+                    "children": [
+                      {
+                        "id": "w_total",
+                        "type": "Text",
+                        "props": {
+                          "data": {
+                            "$bind": "n_totalText.out"
+                          },
+                          "style": {
+                            "fontSize": 32,
+                            "fontWeight": "bold"
+                          }
+                        }
+                      },
+                      {
+                        "id": "w_break",
+                        "type": "Text",
+                        "props": {
+                          "data": {
+                            "$bind": "n_breakdown.out"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "dartType": "String",
+        "id": "n_sku",
+        "init": "PRO-1",
+        "name": "sku",
+        "type": "Signal"
+      },
+      {
+        "dartType": "int",
+        "id": "n_qty",
+        "init": 12,
+        "name": "quantity",
+        "type": "Signal"
+      },
+      {
+        "dartType": "Quote?",
+        "id": "n_quote",
+        "name": "quote",
+        "type": "Signal"
+      },
+      {
+        "dartType": "bool",
+        "id": "n_loading",
+        "init": false,
+        "name": "loading",
+        "type": "Signal"
+      },
+      {
+        "dartType": "String?",
+        "id": "n_error",
+        "name": "error",
+        "type": "Signal"
+      },
+      {
+        "dartType": "int",
+        "expr": "int.tryParse(text.trim()) ?? 0",
+        "id": "n_parseQty",
+        "inputs": {
+          "text": "String"
+        },
+        "name": "parseQuantity",
+        "type": "Computed"
+      },
+      {
+        "dartType": "bool",
+        "expr": "message != null",
+        "id": "n_hasError",
+        "inputs": {
+          "message": "String?"
+        },
+        "name": "hasError",
+        "type": "Computed"
+      },
+      {
+        "dartType": "String",
+        "expr": "message ?? ''",
+        "id": "n_errorText",
+        "inputs": {
+          "message": "String?"
+        },
+        "name": "errorText",
+        "type": "Computed"
+      },
+      {
+        "dartType": "bool",
+        "expr": "quote != null",
+        "id": "n_hasQuote",
+        "inputs": {
+          "quote": "Quote?"
+        },
+        "name": "hasQuote",
+        "type": "Computed"
+      },
+      {
+        "dartType": "String",
+        "expr": "quote == null ? '' : '\\$${quote.total.toStringAsFixed(2)}'",
+        "id": "n_totalText",
+        "inputs": {
+          "quote": "Quote?"
+        },
+        "name": "totalText",
+        "type": "Computed"
+      },
+      {
+        "dartType": "String",
+        "expr": "quote == null ? '' : '${quote.quantity} x \\$${quote.unitPrice.toStringAsFixed(2)}  ·  ${(quote.discount * 100).round()}% off'",
+        "id": "n_breakdown",
+        "inputs": {
+          "quote": "Quote?"
+        },
+        "name": "breakdown",
+        "type": "Computed"
+      },
+      {
+        "event": "onChanged",
+        "id": "ev_sku",
+        "type": "Event",
+        "widget": "w_sku"
+      },
+      {
+        "id": "a_sku",
+        "signal": "n_sku",
+        "type": "SetSignal"
+      },
+      {
+        "event": "onChanged",
+        "id": "ev_qty",
+        "type": "Event",
+        "widget": "w_qty"
+      },
+      {
+        "id": "a_qty",
+        "signal": "n_qty",
+        "type": "SetSignal"
+      },
+      {
+        "event": "onPressed",
+        "id": "ev_fetch",
+        "type": "Event",
+        "widget": "w_go"
+      },
+      {
+        "errorSignal": "n_error",
+        "function": "priceFor",
+        "id": "a_fetch",
+        "loadingSignal": "n_loading",
+        "signal": "n_quote",
+        "type": "CallServer"
+      }
+    ],
+    "edges": [
+      {
+        "from": "n_error.value",
+        "to": "n_hasError.message"
+      },
+      {
+        "from": "n_error.value",
+        "to": "n_errorText.message"
+      },
+      {
+        "from": "n_quote.value",
+        "to": "n_hasQuote.quote"
+      },
+      {
+        "from": "n_quote.value",
+        "to": "n_totalText.quote"
+      },
+      {
+        "from": "n_quote.value",
+        "to": "n_breakdown.quote"
+      },
+      {
+        "from": "ev_sku.fire",
+        "to": "a_sku.exec"
+      },
+      {
+        "from": "ev_sku.payload",
+        "to": "a_sku.value"
+      },
+      {
+        "from": "ev_qty.fire",
+        "to": "a_qty.exec"
+      },
+      {
+        "from": "ev_qty.payload",
+        "to": "n_parseQty.text"
+      },
+      {
+        "from": "n_parseQty.out",
+        "to": "a_qty.value"
+      },
+      {
+        "from": "ev_fetch.fire",
+        "to": "a_fetch.exec"
+      },
+      {
+        "from": "n_sku.value",
+        "to": "a_fetch.sku"
+      },
+      {
+        "from": "n_qty.value",
+        "to": "a_fetch.quantity"
+      }
+    ]
+  },
+  "layout": {
+    "a_fetch": [
+      320.0,
+      560.0
+    ],
+    "ev_fetch": [
+      64.0,
+      560.0
+    ],
+    "n_error": [
+      64.0,
+      384.0
+    ],
+    "n_loading": [
+      64.0,
+      304.0
+    ],
+    "n_qty": [
+      64.0,
+      144.0
+    ],
+    "n_quote": [
+      64.0,
+      224.0
+    ],
+    "n_sku": [
+      64.0,
+      64.0
+    ]
+  }
+}

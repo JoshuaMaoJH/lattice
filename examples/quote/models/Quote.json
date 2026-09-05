@@ -1,0 +1,10 @@
+{
+  "name": "Quote",
+  "fields": {
+    "sku": "String",
+    "quantity": "int",
+    "unitPrice": "double",
+    "discount": "double",
+    "total": "double"
+  }
+}

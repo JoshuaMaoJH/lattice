@@ -5,6 +5,7 @@ import 'codegen_exception.dart';
 import 'emit/app_emitter.dart';
 import 'emit/model_emitter.dart';
 import 'emit/page_emitter.dart';
+import 'emit/rpc_client_emitter.dart';
 import 'emit/support_files.dart';
 import 'ir/lowering.dart';
 
@@ -72,6 +73,10 @@ class LatticeGenerator {
         );
       }
       addDart('lib/main.dart', const AppEmitter().emit(project));
+      if (project.hasServer) {
+        // The other half of every `Call Server` node (§7.7).
+        addDart('lib/rpc.dart', const RpcClientEmitter().emit(ir));
+      }
       if (project.models.isNotEmpty) {
         addDart('lib/models.dart', const ModelEmitter().emit(project.models));
       }

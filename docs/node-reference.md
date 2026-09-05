@@ -63,6 +63,7 @@
 
 | 节点 | 输入 | 输出 | 配置 | 说明 |
 |---|---|---|---|---|
+| `CallServer` | ▷ `exec`: Event | ▷ `next`: Event | `function`, `signal`, `loadingSignal`, `errorSignal` | Calls a server function and writes the answer into a Signal. One input pin per parameter the function declares (§7.7). |
 | `SetSignal` | ▷ `exec`: Event<br>● `value*`: dynamic | ▷ `next`: Event | `signal` | Writes a value into a Signal. |
 | `UpdateSignal` | ▷ `exec`: Event | ▷ `next`: Event | `signal`, `fn` | Applies a pure function to a Signal's current value. |
 | `ToggleSignal` | ▷ `exec`: Event | ▷ `next`: Event | `signal` | Inverts a bool Signal. |
@@ -75,6 +76,7 @@
 
 | 节点 | 输入 | 输出 | 配置 | 说明 |
 |---|---|---|---|---|
+| `Return` | ● `value*`: dynamic | — | — | What a server function answers with. Exactly one per function. |
 | `ForEachItem` | — | ● `item`: dynamic<br>● `index`: int | `forEach` | The current item and index inside a ForEach template. Readable only by widgets inside that template. |
 
 ### 逃生舱

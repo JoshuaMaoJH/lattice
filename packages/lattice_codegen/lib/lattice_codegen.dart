@@ -13,6 +13,7 @@ export 'src/emit/literals.dart';
 export 'src/emit/model_emitter.dart';
 export 'src/emit/page_emitter.dart';
 export 'src/emit/render.dart';
+export 'src/emit/rpc_client_emitter.dart';
 export 'src/emit/support_files.dart';
 export 'src/generator.dart';
 export 'src/ir/lowering.dart';

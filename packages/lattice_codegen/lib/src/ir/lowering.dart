@@ -30,6 +30,10 @@ class Lowering {
         pages: [
           for (final unit in project.units) _PageLowering(project, unit).run(),
         ],
+        serverFunctions: [
+          for (final function in project.serverFunctions)
+            _PageLowering(project, function).runServer(),
+        ],
       );
 }
 
@@ -41,13 +45,20 @@ class _PageLowering {
   }
 
   final Project project;
-  final WidgetUnit unit;
+
+  /// The page, prefab or server function being lowered. Most of what follows
+  /// is the same either side of the network boundary — only the widget half is
+  /// conditional (§7.7).
+  final GraphUnit unit;
+
+  WidgetUnit get widgetUnit => unit as WidgetUnit;
   final Graph graph;
   final LiteralEmitter literals;
   late final NodeContext ctx;
 
   final Namer namer = Namer(const ['context', 'widget', 'key', 'build']);
-  late final ScopeMap scopes = ScopeMap.of(unit);
+  late final ScopeMap scopes =
+      unit is WidgetUnit ? ScopeMap.of(widgetUnit) : ScopeMap.empty;
   late final WidgetLookup widgets = WidgetLookup(project);
   final SplayTreeSet<String> usedPrefabs = SplayTreeSet<String>();
 
@@ -71,10 +82,11 @@ class _PageLowering {
   /// Decided structurally before anything is lowered, because `PageParam`
   /// reads a constructor field — reachable as `widget.x` from a State, and as
   /// plain `x` from a StatelessWidget.
-  late final bool isStateful = unit.isStateful;
+  late final bool isStateful = unit is WidgetUnit && widgetUnit.isStateful;
 
   bool _usesHttp = false;
   bool _usesJson = false;
+  bool _usesRpc = false;
 
   /// Set while lowering one handler; an awaited action flips it.
   bool _chainIsAsync = false;
@@ -92,12 +104,12 @@ class _PageLowering {
     _planHoists();
     _lowerHandlers();
 
-    final body = _lowerWidget(unit.hierarchy, insideBoundary: false);
+    final body = _lowerWidget(widgetUnit.hierarchy, insideBoundary: false);
 
     return PageIr(
-      unit: unit,
-      className: unit.className,
-      fileName: unit.fileName,
+      unit: widgetUnit,
+      className: widgetUnit.className,
+      fileName: widgetUnit.fileName,
       signals: signals,
       hoisted: hoists.values.toList(),
       helpers: helpers.values.toList(),
@@ -108,6 +120,7 @@ class _PageLowering {
       extraImports: extraImports.toList(),
       usesHttp: _usesHttp,
       usesJson: _usesJson,
+      usesRpc: _usesRpc,
       usedPrefabs: usedPrefabs.toList(),
     );
   }
@@ -167,13 +180,58 @@ class _PageLowering {
           ),
       };
 
+  /// Lowers a server function: its helpers, and the single expression it
+  /// answers with (§7.7).
+  ///
+  /// The same `_lowerPin` walks the graph as on the client — a `Computed` is a
+  /// `Computed` on either side of the wire. What differs is only what is
+  /// *allowed* to appear, which the validator has already decided.
+  ServerFunctionIr runServer() {
+    final function = unit as ServerFunction;
+    _collectHelpers();
+
+    final returnNode = graph.ofType('Return').firstOrNull;
+    if (returnNode == null) {
+      throw CodegenException(
+        '${function.name} has no Return node.',
+        pageId: function.id,
+      );
+    }
+
+    final edge = graph.source(PinRef(returnNode.id, 'value'));
+    if (edge == null) {
+      throw CodegenException(
+        '${function.name} never says what it returns.',
+        pageId: function.id,
+        nodeId: returnNode.id,
+      );
+    }
+
+    final body = _lowerPin(edge.from);
+    _noteModelUse(function.returns);
+    for (final parameter in function.parameters) {
+      _noteModelUse(parameter.type);
+    }
+
+    return ServerFunctionIr(
+      function: function,
+      helpers: helpers.values.toList(),
+      body: body,
+      usesModels: _usesModels,
+      usesJson: _usesJson,
+      usesHttp: _usesHttp,
+      extraImports: extraImports.toList(),
+    );
+  }
+
   /// Names the loop variables for every `ForEach` template.
   ///
   /// Done before anything else is lowered because handlers, which are emitted
   /// as methods rather than inline closures, need to know what to call their
   /// parameters (ADR-009).
   void _collectScopeVars() {
-    for (final widget in unit.hierarchy.descendantsAndSelf) {
+    if (unit is! WidgetUnit) return;
+    for (final widget in widgetUnit.hierarchy.descendantsAndSelf) {
       if (widget.type != 'ForEach') continue;
       scopeVars[widget.id] = _ScopeVars(
         item: namer.take('item'),
@@ -239,7 +297,8 @@ class _PageLowering {
     for (final edge in graph.edges) {
       bump(edge.from);
     }
-    for (final widget in unit.hierarchy.descendantsAndSelf) {
+    if (unit is! WidgetUnit) return counts;
+    for (final widget in widgetUnit.hierarchy.descendantsAndSelf) {
       for (final prop in widget.props.values) {
         if (prop is BindProp) bump(prop.source);
       }
@@ -882,6 +941,9 @@ class _PageLowering {
       case 'HttpRequest':
         return _lowerHttpRequest(action);
 
+      case 'CallServer':
+        return _lowerCallServer(action);
+
       case 'Print':
         final message = _input(action, 'message');
         return [
@@ -895,6 +957,71 @@ class _PageLowering {
           nodeId: action.id,
         );
     }
+  }
+
+  /// A call to a server function (§7.7).
+  ///
+  /// Shorter than the raw HTTP case because the generated stub already knows
+  /// the argument and answer types — the page just awaits it.
+  List<Code> _lowerCallServer(GraphNode action) {
+    _usesRpc = true;
+    _chainIsAsync = true;
+
+    final name = action.get<String>('function');
+    final target = ctx.serverFunction(name);
+    if (target == null) {
+      throw CodegenException(
+        'CallServer "${action.id}" names no server function.',
+        pageId: unit.id,
+        nodeId: action.id,
+      );
+    }
+
+    final targetId = action.get<String>('signal');
+    final signal = signalNames[targetId];
+    if (signal == null) {
+      throw CodegenException(
+        'CallServer "${action.id}" needs a "signal" to put the answer in.',
+        pageId: unit.id,
+        nodeId: action.id,
+      );
+    }
+    _noteModelUse(target.returns);
+
+    final loading = signalNames[action.get<String>('loadingSignal')];
+    final failure = signalNames[action.get<String>('errorSignal')];
+    final caught = namer.take('failure');
+
+    final arguments = <String>[];
+    for (final parameter in target.parameters) {
+      final edge = graph.source(PinRef(action.id, parameter.name));
+      if (edge == null) continue;
+      arguments.add(renderExpression(_lowerPin(edge.from).bare()));
+    }
+
+    final body = StringBuffer()
+      ..writeln('try {')
+      ..writeln('  $signal.value = await ${target.name}('
+          '${arguments.join(', ')});')
+      ..writeln('} catch ($caught) {');
+    if (failure != null) {
+      body.writeln('  $failure.value = $caught.toString();');
+    } else {
+      body.writeln('  debugPrint(\'${target.name} failed: \$$caught\');');
+    }
+    body.writeln('}');
+    if (loading != null) {
+      body
+        ..writeln('finally {')
+        ..writeln('  $loading.value = false;')
+        ..writeln('}');
+    }
+
+    return [
+      if (loading != null) Code('$loading.value = true;'),
+      if (failure != null) Code('$failure.value = null;'),
+      Code(body.toString()),
+    ];
   }
 
   /// An HTTP call plus the loading and error bookkeeping a person would write

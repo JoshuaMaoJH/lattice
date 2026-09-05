@@ -150,6 +150,7 @@ final class PageIr {
     this.extraImports = const [],
     this.usesHttp = false,
     this.usesJson = false,
+    this.usesRpc = false,
     this.usedPrefabs = const [],
   });
 
@@ -186,6 +187,10 @@ final class PageIr {
   /// Whether it decodes JSON, and therefore needs `dart:convert`.
   final bool usesJson;
 
+  /// Whether the page calls a server function, and therefore needs the
+  /// generated RPC stubs (§7.7).
+  final bool usesRpc;
+
   /// File names of the prefabs this unit places, for its imports (R9).
   final List<String> usedPrefabs;
 
@@ -202,17 +207,45 @@ final class PageIr {
   bool get needsLifecycle => controllers.isNotEmpty;
 }
 
+/// One server function, lowered (§7.7).
+final class ServerFunctionIr {
+  const ServerFunctionIr({
+    required this.function,
+    required this.helpers,
+    required this.body,
+    required this.usesModels,
+    required this.usesJson,
+    required this.usesHttp,
+    required this.extraImports,
+  });
+
+  final ServerFunction function;
+  final List<HelperIr> helpers;
+
+  /// The expression the function answers with.
+  final Emitted body;
+
+  final bool usesModels;
+  final bool usesJson;
+  final bool usesHttp;
+  final List<String> extraImports;
+}
+
 /// The lowered form of a whole project.
 final class ProjectIr {
   const ProjectIr({
     required this.project,
     required this.pages,
+    this.serverFunctions = const [],
   });
 
   final Project project;
   final List<PageIr> pages;
+  final List<ServerFunctionIr> serverFunctions;
+
+  bool get hasServer => serverFunctions.isNotEmpty;
 
   /// Whether any page talks HTTP, which decides the generated pubspec's
-  /// dependencies.
-  bool get usesHttp => pages.any((p) => p.usesHttp);
+  /// dependencies. Calling a server function counts: the stubs use `http`.
+  bool get usesHttp => pages.any((p) => p.usesHttp || p.usesRpc) || hasServer;
 }

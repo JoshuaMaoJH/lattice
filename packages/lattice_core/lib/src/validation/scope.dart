@@ -19,6 +19,9 @@ final class ScopeMap {
   /// Graph node id -> `ForEach` widget ids its value depends on.
   final Map<String, Set<String>> _nodeScopes;
 
+  /// A map for something with no widget tree — a server function.
+  static final ScopeMap empty = ScopeMap._(const {}, const {});
+
   static ScopeMap of(WidgetUnit unit) {
     final enclosing = <String, List<String>>{};
 

@@ -15,6 +15,7 @@ dart run packages/lattice_cli/bin/lattice.dart build examples/counter -t web --c
 | [`todo/`](todo) | ForEach、If、作用域、itemKey、Prefab ×3、多页面传参、Dart Code、controller 绑定 | ✅ |
 | [`weather/`](weather) | HTTP 异步链、loading/error、JSON→模型、jsonKey、Dart Code | ✅ |
 | [`signup/`](signup) | 51 个节点的表单校验；Subgraph 折叠、Comment、Reroute（R14） | ✅ |
+| [`quote/`](quote) | 服务端函数、RPC stub、共享模型（M3 / R17） | ✅ |
 
 `counter/` 与 `todo/` 生成的代码都被 `packages/lattice_codegen/test/goldens/` 快照锁定，
 任何输出变化都必须显式重录并审阅 diff。

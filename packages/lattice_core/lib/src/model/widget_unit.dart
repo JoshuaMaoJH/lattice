@@ -1,6 +1,7 @@
 import '../schema/widget_registry.dart';
 import 'data_model.dart';
 import 'graph.dart';
+import 'graph_unit.dart';
 import 'hierarchy.dart';
 import 'page.dart';
 
@@ -11,10 +12,12 @@ import 'page.dart';
 /// by being placed in another hierarchy. Everything downstream (validation,
 /// lowering, emission) treats them identically, which is why the compiler has
 /// one path rather than two.
-abstract interface class WidgetUnit {
+abstract interface class WidgetUnit implements GraphUnit {
+  @override
   String get id;
 
   /// Human-facing name.
+  @override
   String get name;
 
   /// The generated Dart class, e.g. `HomePage` or `StatCard`.
@@ -28,13 +31,17 @@ abstract interface class WidgetUnit {
 
   WidgetNode get hierarchy;
 
+  @override
   Graph get graph;
 
   /// Values the unit must be constructed with.
+  @override
   List<FieldDef> get parameters;
 
+  @override
   Map<String, CanvasPos> get layout;
 
+  @override
   FieldDef? parameter(String name);
 }
 

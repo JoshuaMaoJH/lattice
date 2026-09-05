@@ -297,6 +297,43 @@ class NodeRegistry {
       },
     ),
 
+    // ---- server (§7.7) -----------------------------------------------------
+    NodeSchema(
+      type: 'Return',
+      category: NodeCategory.control,
+      summary: 'What a server function answers with. Exactly one per function.',
+      inputsFor: (_, ctx) => [
+        _in('value', ctx.returnType ?? PrimitiveType.dynamic_),
+      ],
+      outputsFor: (_, __) => const [],
+    ),
+    NodeSchema(
+      type: 'CallServer',
+      category: NodeCategory.action,
+      summary: 'Calls a server function and writes the answer into a Signal. '
+          'One input pin per parameter the function declares (§7.7).',
+      configKeys: const [
+        'function',
+        'signal',
+        'loadingSignal',
+        'errorSignal',
+      ],
+      inputsFor: (node, ctx) {
+        final target = ctx.serverFunction(node.get<String>('function'));
+        return [
+          _exec,
+          for (final parameter in target?.parameters ?? const <FieldDef>[])
+            _in(
+              parameter.name,
+              parameter.type,
+              req: parameter.defaultValue == null &&
+                  parameter.type is! NullableType,
+            ),
+        ];
+      },
+      outputsFor: (_, __) => const [_next],
+    ),
+
     // ---- control -----------------------------------------------------------
     NodeSchema(
       type: 'PageParam',

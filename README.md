@@ -121,7 +121,7 @@ UPDATE_GOLDENS=1 dart test packages/lattice_codegen
 | **M0 打通管线** | ✅ 工程 JSON → 校验 → codegen → `flutter analyze` 零诊断 → `flutter build web` 出产物 |
 | **M1 MVP 编辑器** | ✅ 四面板 + 自研节点画布；R1–R8、R14、R15 |
 | M2 真实小应用 | 进行中：ForEach / If / 作用域已完成（R10），Prefab / HTTP / Dart Code 未做 |
-| M3 全栈 | 未开始 |
+| **M3 全栈** | ✅ Server Function → 可运行的服务端 + 类型化 RPC；真实往返已验证。未部署 |
 | M4 发布 | CI 工作流已能生成 |
 
 ## 协议

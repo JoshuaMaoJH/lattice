@@ -16,3 +16,4 @@
 | [009](009-foreach-scope-read-outer-only.md) | ForEach 模板先做"只读外层"，留出 key 与作用域 | 已实现（M2 新增） |
 | [010](010-m2-shapes.md) | controller 归 codegen 拥有；prefab v1 只收值；await 传染整条链；打包只做本机能做的 | 已实现（M2 新增） |
 | [011](011-folding-not-subfunctions.md) | Subgraph v1 是折叠而非子函数；整理不改变语义 | 已实现（R14） |
+| [012](012-plain-dart-server.md) | 服务端生成 dart:io 普通程序，不用 dart_frog（**改动 §9 选型**） | 已实现（M3） |

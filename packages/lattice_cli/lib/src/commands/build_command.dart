@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:lattice_build/lattice_build.dart';
 import 'package:lattice_codegen/io.dart';
 import 'package:lattice_codegen/lattice_codegen.dart';
+import 'package:lattice_server_gen/lattice_server_gen.dart';
 import 'package:lattice_core/lattice_core.dart';
 import 'package:path/path.dart' as p;
 
@@ -61,6 +62,21 @@ class BuildCommand extends LatticeCommand {
   @override
   String get invocation => 'lattice build [project-directory] [-t linux,web]';
 
+  /// Writes a file map, skipping files whose contents already match.
+  Future<int> _writeFiles(Map<String, String> files, String outputDir) async {
+    var changed = 0;
+    for (final entry in files.entries) {
+      final file = File(p.join(outputDir, entry.key));
+      await file.parent.create(recursive: true);
+      if (file.existsSync() && await file.readAsString() == entry.value) {
+        continue;
+      }
+      await file.writeAsString(entry.value);
+      changed++;
+    }
+    return changed;
+  }
+
   @override
   Future<int> run() async {
     final root = resolveProjectRoot();
@@ -90,6 +106,28 @@ class BuildCommand extends LatticeCommand {
       '${result.files.length} file(s) generated, ${written.length} changed '
       '-> ${p.relative(output)}',
     );
+
+    // 1b. The server half, when the graph has one (§7.7). No flag: a project
+    //     with server functions is not fully generated without them.
+    if (project.hasServer) {
+      final serverOutput = p.join(root, '.lattice', 'build_server');
+      final server = const ServerGenerator().generate(project);
+      if (!server.isSuccess) {
+        for (final error in server.errors) {
+          console.error('  $error');
+        }
+        return 1;
+      }
+      final serverWritten = await _writeFiles(server.files, serverOutput);
+      console.success(
+        '${server.files.length} server file(s), $serverWritten changed '
+        '-> ${p.relative(serverOutput)}',
+      );
+      console.step(
+        'Run it with: cd ${p.relative(serverOutput)} && '
+        'dart pub get && dart run bin/server.dart',
+      );
+    }
 
     // 2. Platform directories, created once and then left alone.
     final scaffold = await const PlatformScaffolder().ensure(

@@ -7,6 +7,7 @@ import '../model/json_utils.dart';
 import '../model/page.dart';
 import '../model/prefab.dart';
 import '../model/project.dart';
+import '../model/server_function.dart';
 
 /// Reads and writes the on-disk project format (§7.4).
 ///
@@ -72,6 +73,25 @@ class ProjectIo {
       }
     }
 
+    final serverFunctions = <ServerFunction>[];
+    final serverDir = Directory('$root/server');
+    if (serverDir.existsSync()) {
+      final files = serverDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      for (final file in files) {
+        serverFunctions.add(
+          ServerFunction.fromJson(
+            asObj(jsonDecode(await file.readAsString()), file.path),
+            path: file.path,
+          ),
+        );
+      }
+    }
+
     // The manifest's `pages` array fixes declaration order; anything found on
     // disk but unlisted is appended so a hand-added file is never silently
     // ignored.
@@ -109,6 +129,7 @@ class ProjectIo {
       pages: pages,
       models: models,
       prefabs: prefabs,
+      serverFunctions: serverFunctions,
     );
   }
 
@@ -130,6 +151,15 @@ class ProjectIo {
       for (final prefab in project.prefabs) {
         await File('${prefabsDir.path}/${prefab.id}.json')
             .writeAsString('${_encoder.convert(prefab.toJson())}\n');
+      }
+    }
+
+    if (project.serverFunctions.isNotEmpty) {
+      final serverDir = Directory('$root/server');
+      await serverDir.create(recursive: true);
+      for (final fn in project.serverFunctions) {
+        await File('${serverDir.path}/${fn.id}.json')
+            .writeAsString('${_encoder.convert(fn.toJson())}\n');
       }
     }
 

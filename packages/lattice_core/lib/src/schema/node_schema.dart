@@ -1,6 +1,8 @@
 import '../model/graph.dart';
 import '../model/hierarchy.dart';
+import '../model/graph_unit.dart';
 import '../model/page.dart';
+import '../model/server_function.dart';
 import '../model/widget_unit.dart';
 import '../model/pin_ref.dart';
 import '../model/project.dart';
@@ -46,8 +48,8 @@ final class NodeContext {
 
   final Graph graph;
 
-  /// The page or prefab being compiled.
-  final WidgetUnit? unit;
+  /// The page, prefab or server function being compiled.
+  final GraphUnit? unit;
 
   final Project? project;
 
@@ -69,8 +71,9 @@ final class NodeContext {
 
   /// The whitelisted schema behind a Hierarchy node id.
   WidgetSchema? widgetSchema(String? widgetId) {
-    if (widgetId == null || unit == null) return null;
-    for (final w in unit!.hierarchy.descendantsAndSelf) {
+    final owner = unit;
+    if (widgetId == null || owner is! WidgetUnit) return null;
+    for (final w in owner.hierarchy.descendantsAndSelf) {
       if (w.id == widgetId) return widgets.lookup(w.type);
     }
     return null;
@@ -87,10 +90,21 @@ final class NodeContext {
     return param.type;
   }
 
+  /// What the server function being compiled answers with, if that is what
+  /// this is.
+  LatticeType? get returnType =>
+      unit is ServerFunction ? (unit! as ServerFunction).returns : null;
+
+  ServerFunction? serverFunction(String? name) {
+    if (name == null || project == null) return null;
+    return project!.serverFunction(name);
+  }
+
   /// The Hierarchy node with this id, searching nested widget props too.
   WidgetNode? widgetNode(String? widgetId) {
-    if (widgetId == null || unit == null) return null;
-    for (final widget in unit!.hierarchy.descendantsAndSelf) {
+    final owner = unit;
+    if (widgetId == null || owner is! WidgetUnit) return null;
+    for (final widget in owner.hierarchy.descendantsAndSelf) {
       if (widget.id == widgetId) return widget;
     }
     return null;

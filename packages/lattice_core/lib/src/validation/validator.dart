@@ -5,6 +5,8 @@ import '../model/project.dart';
 import '../schema/node_registry.dart';
 import '../schema/node_schema.dart';
 import '../schema/pin_schema.dart';
+import '../model/graph_unit.dart';
+import '../model/server_function.dart';
 import '../model/widget_unit.dart';
 import '../schema/widget_lookup.dart';
 import '../schema/widget_registry.dart';
@@ -73,6 +75,10 @@ class Validator {
       }
       _validateUnit(project, unit, widgets, out);
     }
+    for (final function in project.serverFunctions) {
+      _validateServerFunction(project, function, out);
+    }
+    _validateServerDeclarations(project, out);
     return ValidationResult(out);
   }
 
@@ -206,6 +212,112 @@ class Validator {
     for (final prefab in project.prefabs) {
       if ((colour[prefab.name] ?? white) == white && visit(prefab.name)) return;
     }
+  }
+
+  /// A server function is a function: named, uniquely, with a boundary that
+  /// survives JSON (§7.7).
+  void _validateServerDeclarations(Project project, List<Diagnostic> out) {
+    final seen = <String>{};
+    final identifier = RegExp(r'^[a-z][A-Za-z0-9_]*$');
+
+    for (final function in project.serverFunctions) {
+      if (!seen.add(function.name)) {
+        out.add(Diagnostic.error(
+          code: 'duplicate_server_function',
+          message: 'More than one server function is named "${function.name}". '
+              'The name is the route, so it has to be unique.',
+          pageId: function.id,
+        ));
+      }
+      if (!identifier.hasMatch(function.name)) {
+        out.add(Diagnostic.error(
+          code: 'bad_server_function_name',
+          message: '"${function.name}" cannot be a Dart function name or a URL '
+              'segment. Use lowerCamelCase, for example "priceFor".',
+          pageId: function.id,
+        ));
+      }
+    }
+  }
+
+  void _validateServerFunction(
+    Project project,
+    ServerFunction function,
+    List<Diagnostic> out,
+  ) {
+    final ctx = NodeContext(
+      graph: function.graph,
+      unit: function,
+      project: project,
+    );
+
+    for (final parameter in function.parameters) {
+      _checkTypeResolves(project, parameter.type, out,
+          where: 'server function ${function.name} parameter ${parameter.name}',
+          pageId: function.id);
+      if (!parameter.type.isSerializable) {
+        out.add(Diagnostic.error(
+          code: 'unserializable_boundary',
+          message: '${parameter.name} is a ${parameter.type.dartName}, which '
+              'cannot cross a network boundary. Server function parameters '
+              'have to survive JSON.',
+          pageId: function.id,
+        ));
+      }
+    }
+    _checkTypeResolves(project, function.returns, out,
+        where: 'server function ${function.name} return', pageId: function.id);
+    if (!function.returns.isSerializable) {
+      out.add(Diagnostic.error(
+        code: 'unserializable_boundary',
+        message: '${function.name} returns a ${function.returns.dartName}, '
+            'which cannot cross a network boundary.',
+        pageId: function.id,
+      ));
+    }
+
+    final returns = function.graph.ofType('Return').toList();
+    if (returns.isEmpty) {
+      out.add(Diagnostic.error(
+        code: 'missing_return',
+        message: 'A server function needs a Return node saying what it answers '
+            'with.',
+        pageId: function.id,
+      ));
+    } else if (returns.length > 1) {
+      out.add(Diagnostic.error(
+        code: 'multiple_returns',
+        message: 'A server function has one answer, but this one has '
+            '${returns.length} Return nodes.',
+        pageId: function.id,
+      ));
+    }
+
+    // The client's vocabulary does not exist on the other side of the wire.
+    for (final node in function.graph.nodes) {
+      final schema = NodeRegistry.forNode(node);
+      final clientOnly = switch (node.type) {
+        'Signal' => 'state belongs to the client',
+        'Event' => 'there are no widgets here',
+        'ForEachItem' => 'there is no widget tree here',
+        _ => schema != null && schema.isAction && node.type != 'Print'
+            ? 'actions run on the client'
+            : null,
+      };
+      if (clientOnly != null) {
+        out.add(Diagnostic.error(
+          code: 'client_node_on_server',
+          message: '${node.type} cannot run inside a server function — '
+              '$clientOnly. Pass what it needs in as a parameter.',
+          pageId: function.id,
+          nodeId: node.id,
+        ));
+      }
+    }
+
+    _validateNodes(project, function, ctx, out);
+    _validateEdges(function, ctx, out);
+    _detectCycles(function, out);
   }
 
   void _validateUnit(
@@ -672,7 +784,7 @@ class Validator {
 
   void _validateNodes(
     Project project,
-    WidgetUnit page,
+    GraphUnit page,
     NodeContext ctx,
     List<Diagnostic> out,
   ) {
@@ -757,6 +869,40 @@ class Validator {
             pageId: page.id,
             nodeId: node.id,
           ));
+        }
+      }
+
+      if (node.type == 'CallServer') {
+        final name = node.get<String>('function');
+        final target = ctx.serverFunction(name);
+        if (target == null) {
+          out.add(Diagnostic.error(
+            code: 'unknown_server_function',
+            message: 'No server function named "${name ?? '<unset>'}". '
+                'Known: ${project.serverFunctions.isEmpty ? 'none' : project.serverFunctions.map((f) => f.name).join(', ')}.',
+            pageId: page.id,
+            nodeId: node.id,
+          ));
+        } else {
+          final signalId = node.get<String>('signal');
+          final signal = signalId == null ? null : page.graph.node(signalId);
+          if (signal == null || signal.type != 'Signal') {
+            out.add(Diagnostic.error(
+              code: 'unknown_signal',
+              message: 'CallServer needs a "signal" to put the answer in.',
+              pageId: page.id,
+              nodeId: node.id,
+            ));
+          } else if (!target.returns.isAssignableTo(ctx.signalType(signalId))) {
+            out.add(Diagnostic.error(
+              code: 'type_mismatch',
+              message: '${target.name} returns ${target.returns.dartName}, '
+                  'which does not fit '
+                  '${ctx.signalType(signalId).dartName}.',
+              pageId: page.id,
+              nodeId: node.id,
+            ));
+          }
         }
       }
 
@@ -865,7 +1011,7 @@ class Validator {
   /// A fold is only ever wrong in three ways: it names a node that is not
   /// there, it names itself, or it claims a node another fold already owns.
   void _validateSubgraph(
-    WidgetUnit page,
+    GraphUnit page,
     GraphNode node,
     List<Diagnostic> out,
   ) {
@@ -911,7 +1057,7 @@ class Validator {
     }
   }
 
-  void _validateEdges(WidgetUnit page, NodeContext ctx, List<Diagnostic> out) {
+  void _validateEdges(GraphUnit page, NodeContext ctx, List<Diagnostic> out) {
     final seenTargets = <PinRef, PinRef>{};
 
     for (final edge in page.graph.edges) {
@@ -967,7 +1113,7 @@ class Validator {
 
   /// Depth-first cycle detection over data edges only. Event edges are
   /// imperative and may legitimately loop back to the signal they read.
-  void _detectCycles(WidgetUnit page, List<Diagnostic> out) {
+  void _detectCycles(GraphUnit page, List<Diagnostic> out) {
     final dependencies = <String, Set<String>>{};
     for (final edge in page.graph.edges) {
       final from = page.graph.node(edge.from.nodeId);
