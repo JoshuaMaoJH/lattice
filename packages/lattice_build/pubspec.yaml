@@ -1,0 +1,16 @@
+name: lattice_build
+description: Platform configuration, build and packaging orchestration for Lattice projects.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  lattice_core: ^0.1.0
+  path: ^1.9.0
+
+dev_dependencies:
+  lints: ^5.1.0
+  test: ^1.25.0

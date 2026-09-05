@@ -1,0 +1,19 @@
+name: lattice_codegen
+description: Lowers a Lattice project to an intermediate representation and emits formatted Dart source.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  code_builder: ^4.10.0
+  collection: ^1.19.0
+  dart_style: ^3.0.0
+  lattice_core: ^0.1.0
+  path: ^1.9.0
+
+dev_dependencies:
+  lints: ^5.1.0
+  test: ^1.25.0

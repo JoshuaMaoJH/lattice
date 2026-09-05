@@ -1,0 +1,18 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+*.iml
+
+# Lattice generated output
+.lattice/
+dist/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store

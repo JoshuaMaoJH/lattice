@@ -1,0 +1,22 @@
+name: lattice_cli
+description: Command line front end for Lattice - build, export, analyze and package a project.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+
+executables:
+  lattice: lattice
+
+dependencies:
+  args: ^2.6.0
+  lattice_build: ^0.1.0
+  lattice_codegen: ^0.1.0
+  lattice_core: ^0.1.0
+  path: ^1.9.0
+
+dev_dependencies:
+  lints: ^5.1.0
+  test: ^1.25.0

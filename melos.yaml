@@ -1,0 +1,41 @@
+name: lattice
+
+# `lattice_runtime` is resolved on its own (see the note in pubspec.yaml), so
+# the Flutter-only steps target it explicitly.
+scripts:
+  analyze:
+    description: Static analysis across every package.
+    run: dart analyze packages/ tool/
+
+  format:
+    description: Format all Dart sources.
+    run: dart format packages/ tool/
+
+  format:check:
+    description: Verify formatting without writing.
+    run: dart format --output=none --set-exit-if-changed packages/ tool/
+
+  test:
+    description: Unit tests for the pure-Dart packages.
+    run: melos exec --dir-exists=test --no-flutter -- dart test
+
+  test:runtime:
+    description: Widget and reactivity tests for the runtime.
+    run: cd packages/lattice_runtime && flutter test
+
+  docs:
+    description: Regenerate docs/node-reference.md from the registries.
+    run: dart run tool/generate_node_reference.dart
+
+  example:counter:
+    description: Build the counter example and gate on a clean analysis.
+    run: dart run packages/lattice_cli/bin/lattice.dart build examples/counter -t web --analyze
+
+  ci:
+    description: Everything CI runs.
+    run: |
+      melos run format:check && \
+      melos run analyze && \
+      melos run test && \
+      melos run test:runtime && \
+      melos run example:counter

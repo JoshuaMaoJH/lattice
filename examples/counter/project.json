@@ -1,0 +1,19 @@
+{
+  "config": {
+    "appName": "Counter",
+    "bundleId": "com.example.counter_app",
+    "description": "A Lattice project.",
+    "organization": "com.example",
+    "packageName": "counter_app",
+    "runtime": "signals",
+    "targets": [
+      "linux",
+      "web"
+    ],
+    "version": "1.0.0+1"
+  },
+  "id": "counter",
+  "pages": [
+    "page_home"
+  ]
+}

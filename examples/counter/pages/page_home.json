@@ -1,0 +1,132 @@
+{
+  "id": "page_home",
+  "name": "Home",
+  "route": "/",
+  "isHome": true,
+  "hierarchy": {
+    "id": "w_root",
+    "type": "Scaffold",
+    "props": {
+      "appBar": {
+        "id": "w_appbar",
+        "type": "AppBar",
+        "props": {
+          "title": {
+            "id": "w_title",
+            "type": "Text",
+            "props": {
+              "data": "Counter"
+            }
+          }
+        }
+      }
+    },
+    "children": [
+      {
+        "id": "w_center",
+        "type": "Center",
+        "children": [
+          {
+            "id": "w_col",
+            "type": "Column",
+            "props": {
+              "mainAxisAlignment": "center"
+            },
+            "children": [
+              {
+                "id": "w_txt",
+                "type": "Text",
+                "props": {
+                  "data": {
+                    "$bind": "n_fmt.out"
+                  }
+                }
+              },
+              {
+                "id": "w_gap",
+                "type": "SizedBox",
+                "props": {
+                  "height": 12
+                }
+              },
+              {
+                "id": "w_btn",
+                "type": "ElevatedButton",
+                "props": {
+                  "onPressed": {
+                    "$event": "ev_btn"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_btn_label",
+                    "type": "Text",
+                    "props": {
+                      "data": "+1"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "dartType": "int",
+        "id": "n_count",
+        "init": 0,
+        "name": "count",
+        "type": "Signal"
+      },
+      {
+        "id": "n_fmt",
+        "template": "Count: {0}",
+        "type": "Format"
+      },
+      {
+        "event": "onPressed",
+        "id": "ev_btn",
+        "type": "Event",
+        "widget": "w_btn"
+      },
+      {
+        "fn": "(x) => x + 1",
+        "id": "a_inc",
+        "signal": "n_count",
+        "type": "UpdateSignal"
+      }
+    ],
+    "edges": [
+      {
+        "from": "n_count.value",
+        "to": "n_fmt.args[0]"
+      },
+      {
+        "from": "ev_btn.fire",
+        "to": "a_inc.exec"
+      }
+    ]
+  },
+  "layout": {
+    "a_inc": [
+      340.0,
+      260.0
+    ],
+    "ev_btn": [
+      120.0,
+      260.0
+    ],
+    "n_count": [
+      120.0,
+      80.0
+    ],
+    "n_fmt": [
+      340.0,
+      80.0
+    ]
+  }
+}

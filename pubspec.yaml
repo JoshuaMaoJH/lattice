@@ -1,0 +1,21 @@
+name: lattice_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+
+# Pub workspace: one shared lockfile / .dart_tool for every package below.
+# `lattice_runtime` is deliberately NOT a member: generated projects path-depend
+# on it from outside the workspace, and pub refuses a path dependency onto a
+# workspace member.
+workspace:
+  - packages/lattice_core
+  - packages/lattice_codegen
+  - packages/lattice_build
+  - packages/lattice_cli
+
+dependencies:
+  lattice_core: ^0.1.0
+
+dev_dependencies:
+  melos: ^7.0.0
