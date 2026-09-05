@@ -2,6 +2,7 @@
 // so the fixture is type-checked rather than hand-edited.
 //
 //   dart run tool/make_todo_example.dart
+import 'package:lattice_core/io.dart';
 import 'package:lattice_core/lattice_core.dart';
 
 Future<void> main() async {

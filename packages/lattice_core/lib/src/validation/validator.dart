@@ -828,16 +828,32 @@ class Validator {
       for (final pin in schema.inputs(node, ctx)) {
         if (!pin.required || pin.variadic) continue;
         final ref = PinRef(node.id, pin.name);
-        if (page.graph.incoming(ref).isEmpty) {
-          out.add(Diagnostic.error(
-            code: 'unconnected_input',
-            message: '${node.type}.${pin.name} is required but nothing is '
-                'connected to it.',
+        if (page.graph.incoming(ref).isNotEmpty) continue;
+
+        // An action nothing triggers is dead rather than broken: codegen only
+        // walks out from Event nodes, so it is never emitted. Worth saying —
+        // it is usually the leftover of a deleted widget — but it stops
+        // nothing, so it is not an error.
+        if (schema.isAction && pin.kind == PinKind.event) {
+          out.add(Diagnostic.warning(
+            code: 'unreachable_action',
+            message: '${node.type} is never triggered, so it will not appear '
+                'in the generated code. Connect an Event to it, or delete it.',
             pageId: page.id,
             nodeId: node.id,
             pin: pin.name,
           ));
+          continue;
         }
+
+        out.add(Diagnostic.error(
+          code: 'unconnected_input',
+          message: '${node.type}.${pin.name} is required but nothing is '
+              'connected to it.',
+          pageId: page.id,
+          nodeId: node.id,
+          pin: pin.name,
+        ));
       }
     }
   }

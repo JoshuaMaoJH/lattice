@@ -75,7 +75,7 @@ packages/
   lattice_build/     平台目录、应用元数据、flutter build 编排
   lattice_cli/       lattice new / build / run / export / analyze / targets
 apps/
-  lattice_editor/    四面板桌面编辑器（M1）
+  lattice_editor/    四面板编辑器：Hierarchy / Inspector / Graph / Preview
 examples/
   counter/           §8 计数器
   todo/              ForEach / If / 作用域（R10）
@@ -85,6 +85,18 @@ docs/
   decisions/         ADR
 ```
 
+## 编辑器
+
+```bash
+cd apps/lattice_editor
+flutter run -d linux      # 桌面：真实文件 + flutter run 预览热重载
+flutter run -d chrome     # 浏览器：内存工程，看得见但存不下
+```
+
+一条视觉规则贯穿全局：**颜色只表示类型**。中性色阶之外唯一饱和的像素是引脚、
+连线和类型徽章，色值来自 §7.3；选中用抬升与亮边表达，不用颜色；诊断是刻意的
+例外，所以它无法被忽略。详见 [`apps/lattice_editor/README.md`](apps/lattice_editor/README.md)。
+
 ## 开发
 
 ```bash
@@ -93,6 +105,7 @@ dart analyze packages/                       # 全部零诊断
 (cd packages/lattice_core && dart test)      # 类型系统 / 序列化 / 校验器
 (cd packages/lattice_codegen && dart test)   # lowering + golden
 (cd packages/lattice_runtime && flutter test)
+(cd apps/lattice_editor && flutter test)     # 领域层 + 四面板 widget 测试
 ```
 
 Golden 变更需显式重录并审阅 diff：
@@ -106,7 +119,7 @@ UPDATE_GOLDENS=1 dart test packages/lattice_codegen
 | 里程碑 | 状态 |
 |---|---|
 | **M0 打通管线** | ✅ 工程 JSON → 校验 → codegen → `flutter analyze` 零诊断 → `flutter build web` 出产物 |
-| M1 MVP 编辑器 | 未开始（四面板、节点画布） |
+| **M1 MVP 编辑器** | ✅ 四面板 + 自研节点画布；R1–R8、R15 可用（一处已知问题见编辑器 README） |
 | M2 真实小应用 | 进行中：ForEach / If / 作用域已完成（R10），Prefab / HTTP / Dart Code 未做 |
 | M3 全栈 | 未开始 |
 | M4 发布 | CI 工作流已能生成 |

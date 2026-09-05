@@ -1,3 +1,4 @@
+import 'package:lattice_codegen/io.dart';
 import 'package:lattice_codegen/lattice_codegen.dart';
 import 'package:lattice_core/lattice_core.dart';
 import 'package:path/path.dart' as p;

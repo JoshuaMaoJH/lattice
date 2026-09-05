@@ -23,6 +23,10 @@ scripts:
     description: Widget and reactivity tests for the runtime.
     run: cd packages/lattice_runtime && flutter test
 
+  test:editor:
+    description: Domain and panel tests for the editor.
+    run: cd apps/lattice_editor && flutter test
+
   docs:
     description: Regenerate docs/node-reference.md from the registries.
     run: dart run tool/generate_node_reference.dart
@@ -38,4 +42,5 @@ scripts:
       melos run analyze && \
       melos run test && \
       melos run test:runtime && \
+      melos run test:editor && \
       melos run example:counter

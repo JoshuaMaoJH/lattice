@@ -1,0 +1,26 @@
+name: lattice_editor
+description: The Lattice editor - Hierarchy, Inspector, Graph and Preview over one project.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  collection: ^1.19.0
+  flutter:
+    sdk: flutter
+  lattice_build: ^0.1.0
+  lattice_codegen: ^0.1.0
+  lattice_core: ^0.1.0
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

@@ -13,6 +13,7 @@ workspace:
   - packages/lattice_codegen
   - packages/lattice_build
   - packages/lattice_cli
+  - apps/lattice_editor
 
 dependencies:
   lattice_core: ^0.1.0

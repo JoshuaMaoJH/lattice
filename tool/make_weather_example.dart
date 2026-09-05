@@ -2,6 +2,7 @@
 // model, with loading and error states.
 //
 //   dart run tool/make_weather_example.dart
+import 'package:lattice_core/io.dart';
 import 'package:lattice_core/lattice_core.dart';
 
 Future<void> main() async {

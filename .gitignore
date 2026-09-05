@@ -16,3 +16,8 @@ dist/
 
 # OS
 .DS_Store
+
+# Platform scaffolding `flutter create` generates for the editor
+apps/lattice_editor/linux/
+apps/lattice_editor/web/
+apps/lattice_editor/.playwright-mcp/

@@ -1,11 +1,13 @@
 /// Project model, type system, schema registries and validation for Lattice.
 ///
-/// Pure Dart with no Flutter dependency, so the editor, the code generator,
-/// the CLI and the tests all share one definition of what a project *is*
-/// (§6, "分层").
+/// Pure Dart with no Flutter dependency — and no `dart:io` either, so the
+/// editor can also be compiled for the web. Reading and writing project
+/// directories lives in `package:lattice_core/io.dart`.
+///
+/// The editor, the code generator, the CLI and the tests all share one
+/// definition of what a project *is* (§6, "分层").
 library;
 
-export 'src/io/project_io.dart';
 export 'src/model/data_model.dart';
 export 'src/model/errors.dart';
 export 'src/model/graph.dart';

@@ -1,4 +1,5 @@
 import 'package:lattice_codegen/lattice_codegen.dart';
+import 'package:lattice_core/io.dart';
 import 'package:lattice_core/lattice_core.dart';
 import 'package:test/test.dart';
 
