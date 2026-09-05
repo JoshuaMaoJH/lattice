@@ -24,3 +24,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    # A real project to open where there is no filesystem to open one from.
+    - assets/demo/

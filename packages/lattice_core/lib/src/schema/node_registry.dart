@@ -457,9 +457,18 @@ class NodeRegistry {
 
     // ---- organisation ------------------------------------------------------
     NodeSchema.fixed(
+      type: 'Subgraph',
+      category: NodeCategory.organize,
+      summary: 'Folds a group of nodes into one box (§7.2, R14). '
+          'Purely organisational: the members stay in the graph, so nothing '
+          'about the generated code changes.',
+      configKeys: const ['name', 'members', 'collapsed'],
+    ),
+    NodeSchema.fixed(
       type: 'Comment',
       category: NodeCategory.organize,
       summary: 'A note on the canvas. Ignored by codegen.',
+      configKeys: const ['text', 'width', 'height'],
     ),
     NodeSchema(
       type: 'Reroute',

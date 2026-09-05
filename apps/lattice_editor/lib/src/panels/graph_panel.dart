@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lattice_core/lattice_core.dart';
 
+import '../graph/folding.dart';
 import '../graph/graph_painters.dart';
 import '../graph/node_layout.dart';
 import '../state/editor_controller.dart';
@@ -30,6 +31,7 @@ class _GraphPanelState extends State<GraphPanel> {
   final FocusNode _focus = FocusNode(debugLabel: 'graph');
 
   /// The pin an edge is currently being dragged from, and where the pointer is.
+  FoldMap _folds = FoldMap.empty;
   PinSlot? _linkFrom;
   Offset? _linkPointer;
   String? _refusal;
@@ -141,6 +143,9 @@ class _GraphPanelState extends State<GraphPanel> {
 
   Widget _buildCanvas(WidgetUnit unit) {
     final context = _context;
+    final folds = FoldMap.of(unit, context);
+    _folds = folds;
+
     final rects = <String, Rect>{};
     final slots = <String, List<PinSlot>>{};
 
@@ -148,12 +153,13 @@ class _GraphPanelState extends State<GraphPanel> {
       final nodeSlots = NodeLayout.slotsFor(node, context, unit.graph);
       slots[node.id] = nodeSlots;
       final position = NodeLayout.positionOf(unit, node.id);
-      rects[node.id] = Rect.fromLTWH(
-        position.dx,
-        position.dy,
-        NodeLayout.width,
-        NodeLayout.heightFor(nodeSlots.length),
-      );
+      final size =
+          node.type == 'Subgraph' && node.get<bool>('collapsed') == true
+              ? Size(NodeLayout.width,
+                  NodeLayout.heightFor(folds.portsOf(node.id).length))
+              : NodeLayout.sizeFor(node, nodeSlots.length);
+      rects[node.id] =
+          Rect.fromLTWH(position.dx, position.dy, size.width, size.height);
     }
 
     return Stack(
@@ -167,36 +173,184 @@ class _GraphPanelState extends State<GraphPanel> {
             child: CustomPaint(painter: LatticePainter(scale: _scale)),
           ),
         ),
+        // Expanded folds and comments are regions: behind the edges, so a
+        // group reads as a backdrop rather than as something in the way.
+        for (final node in unit.graph.nodes)
+          if (node.type == 'Subgraph' && node.get<bool>('collapsed') != true)
+            Positioned(
+              left: rects[node.id]!.left,
+              top: rects[node.id]!.top,
+              child: _FoldRegion(
+                controller: controller,
+                node: node,
+                size: _expandedFoldSize(unit, node, rects),
+                isSelected: _selectedNodeId == node.id,
+                onDrag: (delta) => _moveFold(unit, node, delta),
+                onToggle: () => _toggleFold(node),
+              ),
+            ),
+        for (final node in unit.graph.nodes)
+          if (NodeLayout.shapeOf(node.type) == NodeShape.comment)
+            Positioned(
+              left: rects[node.id]!.left,
+              top: rects[node.id]!.top,
+              child: _CommentRegion(
+                controller: controller,
+                node: node,
+                size: rects[node.id]!.size,
+                isSelected: _selectedNodeId == node.id,
+                onDrag: (delta) => _moveNode(node.id, delta),
+                onResize: (delta) => _resizeComment(node, delta),
+              ),
+            ),
         Positioned.fill(
-          child: CustomPaint(
-            painter: EdgePainter(
-              edges: _edgeGeometry(unit, rects, slots),
-              pending: _pendingEdge(rects, slots),
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: EdgePainter(
+                edges: _edgeGeometry(unit, rects, slots),
+                pending: _pendingEdge(rects, slots),
+              ),
             ),
           ),
         ),
         for (final node in unit.graph.nodes)
-          Positioned(
-            left: rects[node.id]!.left,
-            top: rects[node.id]!.top,
-            child: _NodeCard(
-              controller: controller,
-              node: node,
-              slots: slots[node.id]!,
-              isSelected: _selectedNodeId == node.id,
-              highlightedPins: _compatiblePins(slots[node.id]!),
-              onDrag: (delta) => _moveNode(node.id, delta),
-              onLinkStart: (slot, position) => setState(() {
-                _linkFrom = slot;
-                _linkPointer = position;
-              }),
-              onLinkUpdate: (position) =>
-                  setState(() => _linkPointer = position),
-              onLinkEnd: (position) => _completeLink(position, rects, slots),
-              onPinTap: _onPinTap,
+          if (NodeLayout.shapeOf(node.type) == NodeShape.reroute)
+            Positioned(
+              left: rects[node.id]!.left,
+              top: rects[node.id]!.top,
+              child: _RerouteDot(
+                controller: controller,
+                node: node,
+                slots: slots[node.id]!,
+                isSelected: _selectedNodeId == node.id,
+                onDrag: (delta) => _moveNode(node.id, delta),
+                onPinTap: _onPinTap,
+              ),
             ),
-          ),
+        for (final node in unit.graph.nodes)
+          if (node.type == 'Subgraph' && node.get<bool>('collapsed') == true)
+            Positioned(
+              left: rects[node.id]!.left,
+              top: rects[node.id]!.top,
+              child: _CollapsedFold(
+                controller: controller,
+                node: node,
+                ports: folds.portsOf(node.id),
+                isSelected: _selectedNodeId == node.id,
+                onDrag: (delta) => _moveNode(node.id, delta),
+                onToggle: () => _toggleFold(node),
+              ),
+            ),
+        for (final node in unit.graph.nodes)
+          if (NodeLayout.shapeOf(node.type) == NodeShape.card &&
+              !folds.isHidden(node.id))
+            Positioned(
+              left: rects[node.id]!.left,
+              top: rects[node.id]!.top,
+              child: _NodeCard(
+                controller: controller,
+                node: node,
+                slots: slots[node.id]!,
+                isSelected: _selectedNodeId == node.id,
+                highlightedPins: _compatiblePins(slots[node.id]!),
+                onDrag: (delta) => _moveNode(node.id, delta),
+                onLinkStart: (slot, position) => setState(() {
+                  _linkFrom = slot;
+                  _linkPointer = position;
+                }),
+                onLinkUpdate: (position) =>
+                    setState(() => _linkPointer = position),
+                onLinkEnd: (position) => _completeLink(position, rects, slots),
+                onPinTap: _onPinTap,
+              ),
+            ),
       ],
+    );
+  }
+
+  /// The area an expanded fold covers: its members' bounds plus a margin, so
+  /// the box follows the nodes rather than having to be dragged to fit them.
+  Size _expandedFoldSize(
+    WidgetUnit unit,
+    GraphNode fold,
+    Map<String, Rect> rects,
+  ) {
+    final origin = NodeLayout.positionOf(unit, fold.id);
+    var right = origin.dx + NodeLayout.width;
+    var bottom = origin.dy + NodeLayout.commentHeaderHeight + 40;
+
+    for (final member in fold.get<List<Object?>>('members') ?? const []) {
+      final rect = member is String ? rects[member] : null;
+      if (rect == null) continue;
+      if (rect.right + 16 > right) right = rect.right + 16;
+      if (rect.bottom + 16 > bottom) bottom = rect.bottom + 16;
+    }
+    return Size(right - origin.dx, bottom - origin.dy);
+  }
+
+  /// Dragging an expanded fold carries its members with it — a group that
+  /// leaves its contents behind is not a group.
+  void _moveFold(WidgetUnit unit, GraphNode fold, Offset delta) {
+    final shift = delta / _scale;
+    controller.apply('Move ${fold.id}', (project) {
+      var next = project;
+      for (final id in [
+        fold.id,
+        ...(fold.get<List<Object?>>('members') ?? const []).whereType<String>(),
+      ]) {
+        final current = NodeLayout.positionOf(unit, id);
+        final moved = NodeLayout.snap(current + shift);
+        next = ProjectEdits.moveNode(
+          next,
+          controller.activeUnitId,
+          id,
+          CanvasPos(moved.dx, moved.dy),
+        );
+      }
+      return next;
+    });
+  }
+
+  void _toggleFold(GraphNode fold) {
+    final collapsed = fold.get<bool>('collapsed') == true;
+    controller.apply(
+      collapsed ? 'Expand ${fold.id}' : 'Collapse ${fold.id}',
+      (project) => ProjectEdits.setNodeConfig(
+        project,
+        controller.activeUnitId,
+        fold.id,
+        'collapsed',
+        !collapsed,
+      ),
+    );
+  }
+
+  void _resizeComment(GraphNode node, Offset delta) {
+    final width =
+        (node.get<num>('width') ?? 320).toDouble() + delta.dx / _scale;
+    final height =
+        (node.get<num>('height') ?? 160).toDouble() + delta.dy / _scale;
+    controller.apply(
+      'Resize ${node.id}',
+      (project) => ProjectEdits.setNodeConfig(
+        ProjectEdits.setNodeConfig(
+          project,
+          controller.activeUnitId,
+          node.id,
+          'width',
+          NodeLayout.snap(Offset(width, 0)).dx.clamp(
+                NodeLayout.commentMinWidth,
+                2000,
+              ),
+        ),
+        controller.activeUnitId,
+        node.id,
+        'height',
+        NodeLayout.snap(Offset(0, height)).dy.clamp(
+              NodeLayout.commentMinHeight,
+              2000,
+            ),
+      ),
     );
   }
 
@@ -217,8 +371,13 @@ class _GraphPanelState extends State<GraphPanel> {
   ) {
     final geometry = <EdgeGeometry>[];
     for (final edge in unit.graph.edges) {
-      final from = _pinCentre(edge.from, rects, slots, isInput: false);
-      final to = _pinCentre(edge.to, rects, slots, isInput: true);
+      // An edge wholly inside one closed fold is not drawn at all.
+      final fromFold = _folds.foldFor(edge.from.nodeId);
+      final toFold = _folds.foldFor(edge.to.nodeId);
+      if (fromFold != null && fromFold == toFold) continue;
+
+      final from = _endpoint(edge.from, rects, slots, isInput: false);
+      final to = _endpoint(edge.to, rects, slots, isInput: true);
       if (from == null || to == null) continue;
 
       final slot = _slotFor(edge.from, slots, isInput: false);
@@ -276,6 +435,29 @@ class _GraphPanelState extends State<GraphPanel> {
       (s) => s.isInput == isInput && s.ref == ref,
     );
     if (index < 0) return null;
+    final node = controller.activeUnit.graph.node(ref.nodeId);
+    return NodeLayout.pinCenter(
+      rect,
+      index,
+      isInput: isInput,
+      shape: NodeLayout.shapeOf(node?.type ?? ''),
+    );
+  }
+
+  /// Where an edge endpoint should attach, following it into a closed fold.
+  Offset? _endpoint(
+    PinRef ref,
+    Map<String, Rect> rects,
+    Map<String, List<PinSlot>> slots, {
+    required bool isInput,
+  }) {
+    final foldId = _folds.foldFor(ref.nodeId);
+    if (foldId == null) {
+      return _pinCentre(ref, rects, slots, isInput: isInput);
+    }
+    final rect = rects[foldId];
+    final index = _folds.portIndexFor(foldId, ref, isInput: isInput);
+    if (rect == null || index < 0) return null;
     return NodeLayout.pinCenter(rect, index, isInput: isInput);
   }
 
@@ -896,6 +1078,425 @@ class _NodePickerState extends State<_NodePicker> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A labelled region of the canvas (§7.2, R14).
+///
+/// Drawn behind the edges so it reads as a backdrop grouping what sits on it.
+/// It carries no meaning to the compiler — its whole job is to let a reader of
+/// a fifty-node graph see the shape of it before reading any of it.
+class _CommentRegion extends StatelessWidget {
+  const _CommentRegion({
+    required this.controller,
+    required this.node,
+    required this.size,
+    required this.isSelected,
+    required this.onDrag,
+    required this.onResize,
+  });
+
+  final EditorController controller;
+  final GraphNode node;
+  final Size size;
+  final bool isSelected;
+  final void Function(Offset delta) onDrag;
+  final void Function(Offset delta) onResize;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = node.get<String>('text') ?? 'Comment';
+
+    return SizedBox(
+      width: size.width,
+      height: size.height,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: LatticeTheme.surface.withValues(alpha: 0.55),
+                border: Border.all(
+                  color: isSelected
+                      ? LatticeTheme.selectionEdge
+                      : LatticeTheme.hairline,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          // Only the title bar drags, so the region does not swallow clicks
+          // on the nodes sitting inside it.
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => controller.select(NodeSelection(node.id)),
+              onPanUpdate: (details) => onDrag(details.delta),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.move,
+                child: Container(
+                  height: NodeLayout.commentHeaderHeight,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  alignment: Alignment.centerLeft,
+                  decoration: BoxDecoration(
+                    color: LatticeTheme.raised.withValues(alpha: 0.8),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(3),
+                    ),
+                  ),
+                  child: Text(
+                    text,
+                    overflow: TextOverflow.ellipsis,
+                    style: LatticeTheme.eyebrow.copyWith(
+                      color: LatticeTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanUpdate: (details) => onResize(details.delta),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeDownRight,
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CustomPaint(painter: const _ResizeGripPainter()),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResizeGripPainter extends CustomPainter {
+  const _ResizeGripPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = LatticeTheme.hairlineBright
+      ..strokeWidth = 1;
+    for (var offset = 4.0; offset <= 12; offset += 4) {
+      canvas.drawLine(
+        Offset(size.width - offset, size.height - 2),
+        Offset(size.width - 2, size.height - offset),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ResizeGripPainter oldDelegate) => false;
+}
+
+/// A reroute: a dot that bends an edge and nothing more (§7.2, R14).
+///
+/// Both pins sit on its centre line, so a wire appears to pass through it
+/// rather than to stop at it.
+class _RerouteDot extends StatelessWidget {
+  const _RerouteDot({
+    required this.controller,
+    required this.node,
+    required this.slots,
+    required this.isSelected,
+    required this.onDrag,
+    required this.onPinTap,
+  });
+
+  final EditorController controller;
+  final GraphNode node;
+  final List<PinSlot> slots;
+  final bool isSelected;
+  final void Function(Offset delta) onDrag;
+  final void Function(PinSlot slot) onPinTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = slots.isEmpty ? PrimitiveType.dynamic_ : slots.first.type;
+    final colour = LatticeTheme.forType(type);
+
+    return Tooltip(
+      message: '${node.id} · ${type.dartName}',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => controller.select(NodeSelection(node.id)),
+        onPanUpdate: (details) => onDrag(details.delta),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.move,
+          child: SizedBox(
+            width: NodeLayout.rerouteSize,
+            height: NodeLayout.rerouteSize,
+            child: Center(
+              child: Container(
+                width: 13,
+                height: 13,
+                decoration: BoxDecoration(
+                  color: colour,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? LatticeTheme.selectionEdge
+                        : LatticeTheme.canvas,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// An expanded fold: a labelled region that its members sit on (§7.2, R14).
+class _FoldRegion extends StatelessWidget {
+  const _FoldRegion({
+    required this.controller,
+    required this.node,
+    required this.size,
+    required this.isSelected,
+    required this.onDrag,
+    required this.onToggle,
+  });
+
+  final EditorController controller;
+  final GraphNode node;
+  final Size size;
+  final bool isSelected;
+  final void Function(Offset delta) onDrag;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = node.get<String>('name') ?? node.id;
+    final count = (node.get<List<Object?>>('members') ?? const []).length;
+
+    return SizedBox(
+      width: size.width,
+      height: size.height,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: LatticeTheme.surface.withValues(alpha: 0.4),
+                border: Border.all(
+                  color: isSelected
+                      ? LatticeTheme.selectionEdge
+                      : LatticeTheme.hairlineBright,
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+          // Only the title bar is interactive; the region itself must let
+          // clicks through to the nodes sitting on it.
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => controller.select(NodeSelection(node.id)),
+              onPanUpdate: (details) => onDrag(details.delta),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.move,
+                child: Container(
+                  height: NodeLayout.commentHeaderHeight,
+                  padding: const EdgeInsets.only(left: 8, right: 2),
+                  decoration: BoxDecoration(
+                    color: LatticeTheme.raised.withValues(alpha: 0.9),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: LatticeTheme.eyebrow.copyWith(
+                            color: LatticeTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$count',
+                        style: LatticeTheme.monoSmall.copyWith(fontSize: 9.5),
+                      ),
+                      const Spacer(),
+                      ToolButton(
+                        icon: Icons.unfold_less,
+                        tooltip: 'Collapse this group',
+                        onPressed: onToggle,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A collapsed fold: one box with a port per edge that crosses its boundary.
+class _CollapsedFold extends StatelessWidget {
+  const _CollapsedFold({
+    required this.controller,
+    required this.node,
+    required this.ports,
+    required this.isSelected,
+    required this.onDrag,
+    required this.onToggle,
+  });
+
+  final EditorController controller;
+  final GraphNode node;
+  final List<FoldPort> ports;
+  final bool isSelected;
+  final void Function(Offset delta) onDrag;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = node.get<String>('name') ?? node.id;
+    final count = (node.get<List<Object?>>('members') ?? const []).length;
+
+    return SizedBox(
+      width: NodeLayout.width,
+      height: NodeLayout.heightFor(ports.length),
+      child: Container(
+        decoration: BoxDecoration(
+          color: LatticeTheme.surface,
+          border: Border.all(
+            color: isSelected
+                ? LatticeTheme.selectionEdge
+                : LatticeTheme.hairlineBright,
+            width: isSelected ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => controller.select(NodeSelection(node.id)),
+              onPanUpdate: (details) => onDrag(details.delta),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.move,
+                child: Container(
+                  height: NodeLayout.headerHeight,
+                  padding: const EdgeInsets.only(left: 7, right: 2),
+                  decoration: const BoxDecoration(
+                    color: LatticeTheme.raised,
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(3)),
+                    border: Border(
+                      bottom: BorderSide(color: LatticeTheme.hairline),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        NodeLayout.glyphFor(NodeCategory.organize),
+                        style: LatticeTheme.monoSmall.copyWith(
+                          color: LatticeTheme.textFaint,
+                          fontSize: 10,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: LatticeTheme.mono.copyWith(fontSize: 11.5),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$count',
+                        style: LatticeTheme.monoSmall.copyWith(fontSize: 9.5),
+                      ),
+                      const Spacer(),
+                      ToolButton(
+                        icon: Icons.unfold_more,
+                        tooltip: 'Expand this group',
+                        onPressed: onToggle,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: NodeLayout.padTop),
+            for (final port in ports) _portRow(port),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _portRow(FoldPort port) {
+    final colour = LatticeTheme.forType(port.type);
+    final dot = Container(
+      width: 9,
+      height: 9,
+      decoration: BoxDecoration(
+        color: port.kind == PinKind.event ? null : colour,
+        border: Border.all(color: colour, width: 1.6),
+        shape:
+            port.kind == PinKind.event ? BoxShape.rectangle : BoxShape.circle,
+      ),
+    );
+    final label = Text(
+      port.label,
+      overflow: TextOverflow.ellipsis,
+      style: LatticeTheme.monoSmall.copyWith(
+        fontSize: 10.5,
+        color: LatticeTheme.textFaint,
+      ),
+    );
+
+    return SizedBox(
+      height: NodeLayout.rowHeight,
+      child: Row(
+        mainAxisAlignment:
+            port.isInput ? MainAxisAlignment.start : MainAxisAlignment.end,
+        children: port.isInput
+            ? [
+                Transform.translate(offset: const Offset(-4, 0), child: dot),
+                const SizedBox(width: 4),
+                Flexible(child: label),
+                const SizedBox(width: 6),
+              ]
+            : [
+                const SizedBox(width: 6),
+                Flexible(child: label),
+                const SizedBox(width: 4),
+                Transform.translate(offset: const Offset(4, 0), child: dot),
+              ],
       ),
     );
   }

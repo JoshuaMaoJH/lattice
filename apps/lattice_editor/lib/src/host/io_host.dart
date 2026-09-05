@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:lattice_build/lattice_build.dart';
 import 'package:lattice_codegen/io.dart';
 import 'package:lattice_codegen/lattice_codegen.dart';
 import 'package:lattice_core/io.dart';
@@ -59,6 +60,33 @@ class IoHost implements EditorHost {
     return output;
   }
 
+  /// Generates the project *and* makes sure the platform directories exist.
+  ///
+  /// Writing Dart is not enough to run anything: `flutter run -d linux` needs a
+  /// `linux/` directory, which `flutter create` produces once and then leaves
+  /// alone (§7.9 step 1). The CLI has always done this; the preview did not,
+  /// and failed with "No Linux desktop project configured" on any project that
+  /// had never been built from the command line.
+  Future<String> _buildRunnable(
+    Project project,
+    String root,
+    BuildTarget target,
+  ) async {
+    final output = await build(project, root);
+
+    final scaffold = await const PlatformScaffolder().ensure(
+      output,
+      project.config,
+      [target],
+      onLog: _append,
+    );
+    if (!scaffold.isSuccess) {
+      throw StateError('flutter create failed for ${target.id}.');
+    }
+    await const AppMetadata().apply(output, project.config);
+    return output;
+  }
+
   @override
   Future<String> export(
     Project project,
@@ -81,16 +109,33 @@ class IoHost implements EditorHost {
     String? device,
   }) async {
     await stopPreview();
-    final output = await build(project, root);
 
     _log.clear();
     _setStatus(PreviewStatus.starting);
-    _append('flutter run -d ${device ?? 'linux'}');
+
+    final targetId = device ?? 'linux';
+    final target = BuildTarget.fromId(targetId) ?? BuildTarget.linux;
+    if (!Host.canBuild(target)) {
+      _setStatus(PreviewStatus.failed);
+      _append(Host.explain(target));
+      return;
+    }
+
+    final String output;
+    try {
+      output = await _buildRunnable(project, root, target);
+    } on Object catch (error) {
+      _setStatus(PreviewStatus.failed);
+      _append('$error');
+      return;
+    }
+
+    _append('flutter run -d $targetId');
 
     try {
       final process = await Process.start(
         Platform.isWindows ? 'flutter.bat' : 'flutter',
-        ['run', '-d', device ?? 'linux'],
+        ['run', '-d', targetId],
         workingDirectory: output,
       );
       _preview = process;

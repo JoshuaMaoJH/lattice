@@ -153,6 +153,55 @@ void main() {
     });
   });
 
+  group('binding, driven only through the UI', () {
+    // The earlier test calls beginBinding() directly and taps the socket by
+    // key. This one presses the actual bolt and taps the pin *row*, which is
+    // the path that failed when the editor was driven in a browser.
+    testWidgets('bolt then pin row: refuses and says why', (tester) async {
+      await pumpEditor(tester);
+      await tester.tap(find.text('w_txt'));
+      await tester.pumpAndSettle();
+
+      // The bolt on `data` — the row is identified by the parameter name.
+      final dataBolt =
+          find.byTooltip('Bind this parameter to a graph output').first;
+      await tester.tap(dataBolt);
+      await tester.pumpAndSettle();
+      expect(find.text('binding data'), findsOneWidget);
+
+      // Tap the label of an int output pin, not the socket dot.
+      await tester.tap(find.text('value'));
+      await tester.pump();
+
+      expect(controller.pendingBinding, isNotNull);
+      expect(find.textContaining('int does not fit'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('bolt then a compatible pin row completes the binding',
+        (tester) async {
+      await pumpEditor(tester);
+      await tester.tap(find.text('w_txt'));
+      await tester.pumpAndSettle();
+
+      // `maxLines` is the fourth bindable value parameter on Text.
+      await tester.tap(
+        find.byTooltip('Bind this parameter to a graph output').at(3),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('binding maxLines'), findsOneWidget);
+
+      await tester.tap(find.text('value'));
+      await tester.pumpAndSettle();
+
+      expect(controller.pendingBinding, isNull);
+      expect(
+        controller.generated.files['lib/pages/home_page.dart'],
+        contains('maxLines: count.value'),
+      );
+    });
+  });
+
   group('graph (R3)', () {
     testWidgets('draws a card per node with its pins', (tester) async {
       await pumpEditor(tester);

@@ -1,0 +1,979 @@
+{
+  "config": {
+    "appName": "Signup",
+    "bundleId": "com.example.signup_app",
+    "description": "A Lattice example: form validation, folded into groups.",
+    "organization": "com.example",
+    "packageName": "signup_app",
+    "runtime": "signals",
+    "targets": [
+      "linux",
+      "web"
+    ],
+    "version": "1.0.0+1"
+  },
+  "id": "signup",
+  "pages": [
+    {
+      "id": "page_home",
+      "name": "Sign up",
+      "route": "/",
+      "isHome": true,
+      "hierarchy": {
+        "id": "w_root",
+        "type": "Scaffold",
+        "props": {
+          "appBar": {
+            "id": "w_appbar",
+            "type": "AppBar",
+            "props": {
+              "title": {
+                "id": "w_title",
+                "type": "Text",
+                "props": {
+                  "data": "Create an account"
+                }
+              }
+            }
+          }
+        },
+        "children": [
+          {
+            "id": "w_pad",
+            "type": "Padding",
+            "props": {
+              "padding": 24
+            },
+            "children": [
+              {
+                "id": "w_col",
+                "type": "Column",
+                "props": {
+                  "crossAxisAlignment": "stretch",
+                  "mainAxisSize": "min"
+                },
+                "children": [
+                  {
+                    "id": "w_email",
+                    "type": "TextField",
+                    "props": {
+                      "labelText": "Email",
+                      "onChanged": {
+                        "$event": "ev_email"
+                      },
+                      "text": {
+                        "$bind": "n_email.value"
+                      }
+                    }
+                  },
+                  {
+                    "id": "w_email_msg",
+                    "type": "Text",
+                    "props": {
+                      "data": {
+                        "$bind": "n_email_msg.out"
+                      },
+                      "style": {
+                        "fontSize": 12,
+                        "color": "#B3261E"
+                      }
+                    }
+                  },
+                  {
+                    "id": "w_gap1",
+                    "type": "SizedBox",
+                    "props": {
+                      "height": 14
+                    }
+                  },
+                  {
+                    "id": "w_pass",
+                    "type": "TextField",
+                    "props": {
+                      "labelText": "Password",
+                      "obscureText": true,
+                      "onChanged": {
+                        "$event": "ev_pass"
+                      },
+                      "text": {
+                        "$bind": "n_password.value"
+                      }
+                    }
+                  },
+                  {
+                    "id": "w_pass_msg",
+                    "type": "Text",
+                    "props": {
+                      "data": {
+                        "$bind": "n_pass_msg.out"
+                      },
+                      "style": {
+                        "fontSize": 12,
+                        "color": "#B3261E"
+                      }
+                    }
+                  },
+                  {
+                    "id": "w_gap2",
+                    "type": "SizedBox",
+                    "props": {
+                      "height": 14
+                    }
+                  },
+                  {
+                    "id": "w_again",
+                    "type": "TextField",
+                    "props": {
+                      "labelText": "Repeat password",
+                      "obscureText": true,
+                      "onChanged": {
+                        "$event": "ev_again"
+                      },
+                      "text": {
+                        "$bind": "n_confirm.value"
+                      }
+                    }
+                  },
+                  {
+                    "id": "w_again_msg",
+                    "type": "Text",
+                    "props": {
+                      "data": {
+                        "$bind": "n_again_msg.out"
+                      },
+                      "style": {
+                        "fontSize": 12,
+                        "color": "#B3261E"
+                      }
+                    }
+                  },
+                  {
+                    "id": "w_gap3",
+                    "type": "SizedBox",
+                    "props": {
+                      "height": 14
+                    }
+                  },
+                  {
+                    "id": "w_terms",
+                    "type": "Row",
+                    "children": [
+                      {
+                        "id": "w_accept",
+                        "type": "Checkbox",
+                        "props": {
+                          "onChanged": {
+                            "$event": "ev_accept"
+                          },
+                          "value": {
+                            "$bind": "n_accepted.value"
+                          }
+                        }
+                      },
+                      {
+                        "id": "w_terms_text",
+                        "type": "Text",
+                        "props": {
+                          "data": "I accept the terms"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "w_gap4",
+                    "type": "SizedBox",
+                    "props": {
+                      "height": 14
+                    }
+                  },
+                  {
+                    "id": "w_status",
+                    "type": "Text",
+                    "props": {
+                      "data": {
+                        "$bind": "n_status.out"
+                      }
+                    }
+                  },
+                  {
+                    "id": "w_gap5",
+                    "type": "SizedBox",
+                    "props": {
+                      "height": 14
+                    }
+                  },
+                  {
+                    "id": "w_submit",
+                    "type": "ElevatedButton",
+                    "props": {
+                      "onPressed": {
+                        "$event": "ev_submit"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "w_submit_label",
+                        "type": "Text",
+                        "props": {
+                          "data": "Create account"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "graph": {
+        "nodes": [
+          {
+            "dartType": "String",
+            "id": "n_email",
+            "init": "",
+            "name": "email",
+            "type": "Signal"
+          },
+          {
+            "dartType": "String",
+            "id": "n_password",
+            "init": "",
+            "name": "password",
+            "type": "Signal"
+          },
+          {
+            "dartType": "String",
+            "id": "n_confirm",
+            "init": "",
+            "name": "confirm",
+            "type": "Signal"
+          },
+          {
+            "dartType": "bool",
+            "id": "n_accepted",
+            "init": false,
+            "name": "accepted",
+            "type": "Signal"
+          },
+          {
+            "dartType": "int",
+            "expr": "text.trim().length",
+            "id": "n_email_len",
+            "inputs": {
+              "text": "String"
+            },
+            "name": "emailLength",
+            "type": "Computed"
+          },
+          {
+            "dartType": "int",
+            "id": "n_email_min",
+            "type": "Const",
+            "value": 5
+          },
+          {
+            "dartType": "int",
+            "id": "n_email_long",
+            "type": "GreaterOrEqual"
+          },
+          {
+            "dartType": "bool",
+            "expr": "text.contains('@') && text.split('@').last.contains('.')",
+            "id": "n_email_shape",
+            "inputs": {
+              "text": "String"
+            },
+            "name": "emailShape",
+            "type": "Computed"
+          },
+          {
+            "id": "n_email_ok",
+            "type": "And"
+          },
+          {
+            "dartType": "String",
+            "id": "n_email_blank",
+            "type": "Const",
+            "value": ""
+          },
+          {
+            "dartType": "String",
+            "id": "n_email_say",
+            "type": "Const",
+            "value": "That does not look like an email address."
+          },
+          {
+            "dartType": "String",
+            "id": "n_email_msg",
+            "name": "emailMessage",
+            "type": "Conditional"
+          },
+          {
+            "dartType": "int",
+            "expr": "text.trim().length",
+            "id": "n_pass_len",
+            "inputs": {
+              "text": "String"
+            },
+            "name": "passLength",
+            "type": "Computed"
+          },
+          {
+            "dartType": "int",
+            "id": "n_pass_min",
+            "type": "Const",
+            "value": 8
+          },
+          {
+            "dartType": "int",
+            "id": "n_pass_long",
+            "type": "GreaterOrEqual"
+          },
+          {
+            "dartType": "bool",
+            "expr": "text.contains(RegExp('[0-9]'))",
+            "id": "n_pass_shape",
+            "inputs": {
+              "text": "String"
+            },
+            "name": "passShape",
+            "type": "Computed"
+          },
+          {
+            "id": "n_pass_ok",
+            "type": "And"
+          },
+          {
+            "dartType": "String",
+            "id": "n_pass_blank",
+            "type": "Const",
+            "value": ""
+          },
+          {
+            "dartType": "String",
+            "id": "n_pass_say",
+            "type": "Const",
+            "value": "Use at least 8 characters and one digit."
+          },
+          {
+            "dartType": "String",
+            "id": "n_pass_msg",
+            "name": "passMessage",
+            "type": "Conditional"
+          },
+          {
+            "dartType": "int",
+            "expr": "text.trim().length",
+            "id": "n_again_len",
+            "inputs": {
+              "text": "String"
+            },
+            "name": "againLength",
+            "type": "Computed"
+          },
+          {
+            "dartType": "int",
+            "id": "n_again_min",
+            "type": "Const",
+            "value": 1
+          },
+          {
+            "dartType": "int",
+            "id": "n_again_long",
+            "type": "GreaterOrEqual"
+          },
+          {
+            "dartType": "bool",
+            "expr": "text == other",
+            "id": "n_again_shape",
+            "inputs": {
+              "text": "String",
+              "other": "String"
+            },
+            "name": "againShape",
+            "type": "Computed"
+          },
+          {
+            "id": "n_again_ok",
+            "type": "And"
+          },
+          {
+            "dartType": "String",
+            "id": "n_again_blank",
+            "type": "Const",
+            "value": ""
+          },
+          {
+            "dartType": "String",
+            "id": "n_again_say",
+            "type": "Const",
+            "value": "The two passwords do not match."
+          },
+          {
+            "dartType": "String",
+            "id": "n_again_msg",
+            "name": "againMessage",
+            "type": "Conditional"
+          },
+          {
+            "id": "n_creds_ok",
+            "type": "And"
+          },
+          {
+            "id": "n_fields_ok",
+            "type": "And"
+          },
+          {
+            "id": "n_form_ok",
+            "type": "And"
+          },
+          {
+            "dartType": "String",
+            "id": "n_ready",
+            "type": "Const",
+            "value": "Ready to go."
+          },
+          {
+            "dartType": "String",
+            "id": "n_incomplete",
+            "type": "Const",
+            "value": "Fill in every field to continue."
+          },
+          {
+            "dartType": "String",
+            "id": "n_status",
+            "name": "status",
+            "type": "Conditional"
+          },
+          {
+            "dartType": "bool",
+            "id": "n_bend_a",
+            "type": "Reroute"
+          },
+          {
+            "dartType": "bool",
+            "id": "n_bend_b",
+            "type": "Reroute"
+          },
+          {
+            "event": "onChanged",
+            "id": "ev_email",
+            "type": "Event",
+            "widget": "w_email"
+          },
+          {
+            "id": "a_email",
+            "signal": "n_email",
+            "type": "SetSignal"
+          },
+          {
+            "event": "onChanged",
+            "id": "ev_pass",
+            "type": "Event",
+            "widget": "w_pass"
+          },
+          {
+            "id": "a_pass",
+            "signal": "n_password",
+            "type": "SetSignal"
+          },
+          {
+            "event": "onChanged",
+            "id": "ev_again",
+            "type": "Event",
+            "widget": "w_again"
+          },
+          {
+            "id": "a_again",
+            "signal": "n_confirm",
+            "type": "SetSignal"
+          },
+          {
+            "event": "onChanged",
+            "id": "ev_accept",
+            "type": "Event",
+            "widget": "w_accept"
+          },
+          {
+            "id": "a_accept",
+            "signal": "n_accepted",
+            "type": "ToggleSignal"
+          },
+          {
+            "event": "onPressed",
+            "id": "ev_submit",
+            "type": "Event",
+            "widget": "w_submit"
+          },
+          {
+            "id": "a_submit",
+            "type": "ShowSnackBar"
+          },
+          {
+            "collapsed": true,
+            "id": "g_email",
+            "members": [
+              "n_email_len",
+              "n_email_min",
+              "n_email_long",
+              "n_email_shape",
+              "n_email_ok",
+              "n_email_blank",
+              "n_email_say",
+              "n_email_msg"
+            ],
+            "name": "Email rules",
+            "type": "Subgraph"
+          },
+          {
+            "collapsed": true,
+            "id": "g_pass",
+            "members": [
+              "n_pass_len",
+              "n_pass_min",
+              "n_pass_long",
+              "n_pass_shape",
+              "n_pass_ok",
+              "n_pass_blank",
+              "n_pass_say",
+              "n_pass_msg"
+            ],
+            "name": "Password rules",
+            "type": "Subgraph"
+          },
+          {
+            "collapsed": true,
+            "id": "g_again",
+            "members": [
+              "n_again_len",
+              "n_again_min",
+              "n_again_long",
+              "n_again_shape",
+              "n_again_ok",
+              "n_again_blank",
+              "n_again_say",
+              "n_again_msg"
+            ],
+            "name": "Repeat password rules",
+            "type": "Subgraph"
+          },
+          {
+            "height": 400,
+            "id": "c_state",
+            "text": "State — one signal per field",
+            "type": "Comment",
+            "width": 240
+          },
+          {
+            "height": 280,
+            "id": "c_summary",
+            "text": "Is the form valid?",
+            "type": "Comment",
+            "width": 400
+          }
+        ],
+        "edges": [
+          {
+            "from": "n_email.value",
+            "to": "n_email_len.text"
+          },
+          {
+            "from": "n_email.value",
+            "to": "n_email_shape.text"
+          },
+          {
+            "from": "n_email_len.out",
+            "to": "n_email_long.a"
+          },
+          {
+            "from": "n_email_min.value",
+            "to": "n_email_long.b"
+          },
+          {
+            "from": "n_email_long.out",
+            "to": "n_email_ok.a"
+          },
+          {
+            "from": "n_email_shape.out",
+            "to": "n_email_ok.b"
+          },
+          {
+            "from": "n_email_ok.out",
+            "to": "n_email_msg.condition"
+          },
+          {
+            "from": "n_email_blank.value",
+            "to": "n_email_msg.ifTrue"
+          },
+          {
+            "from": "n_email_say.value",
+            "to": "n_email_msg.ifFalse"
+          },
+          {
+            "from": "n_password.value",
+            "to": "n_pass_len.text"
+          },
+          {
+            "from": "n_password.value",
+            "to": "n_pass_shape.text"
+          },
+          {
+            "from": "n_pass_len.out",
+            "to": "n_pass_long.a"
+          },
+          {
+            "from": "n_pass_min.value",
+            "to": "n_pass_long.b"
+          },
+          {
+            "from": "n_pass_long.out",
+            "to": "n_pass_ok.a"
+          },
+          {
+            "from": "n_pass_shape.out",
+            "to": "n_pass_ok.b"
+          },
+          {
+            "from": "n_pass_ok.out",
+            "to": "n_pass_msg.condition"
+          },
+          {
+            "from": "n_pass_blank.value",
+            "to": "n_pass_msg.ifTrue"
+          },
+          {
+            "from": "n_pass_say.value",
+            "to": "n_pass_msg.ifFalse"
+          },
+          {
+            "from": "n_confirm.value",
+            "to": "n_again_len.text"
+          },
+          {
+            "from": "n_confirm.value",
+            "to": "n_again_shape.text"
+          },
+          {
+            "from": "n_again_len.out",
+            "to": "n_again_long.a"
+          },
+          {
+            "from": "n_again_min.value",
+            "to": "n_again_long.b"
+          },
+          {
+            "from": "n_again_long.out",
+            "to": "n_again_ok.a"
+          },
+          {
+            "from": "n_again_shape.out",
+            "to": "n_again_ok.b"
+          },
+          {
+            "from": "n_again_ok.out",
+            "to": "n_again_msg.condition"
+          },
+          {
+            "from": "n_again_blank.value",
+            "to": "n_again_msg.ifTrue"
+          },
+          {
+            "from": "n_again_say.value",
+            "to": "n_again_msg.ifFalse"
+          },
+          {
+            "from": "n_password.value",
+            "to": "n_again_shape.other"
+          },
+          {
+            "from": "n_email_ok.out",
+            "to": "n_creds_ok.a"
+          },
+          {
+            "from": "n_pass_ok.out",
+            "to": "n_bend_a.in"
+          },
+          {
+            "from": "n_bend_a.out",
+            "to": "n_creds_ok.b"
+          },
+          {
+            "from": "n_creds_ok.out",
+            "to": "n_fields_ok.a"
+          },
+          {
+            "from": "n_again_ok.out",
+            "to": "n_bend_b.in"
+          },
+          {
+            "from": "n_bend_b.out",
+            "to": "n_fields_ok.b"
+          },
+          {
+            "from": "n_fields_ok.out",
+            "to": "n_form_ok.a"
+          },
+          {
+            "from": "n_accepted.value",
+            "to": "n_form_ok.b"
+          },
+          {
+            "from": "n_form_ok.out",
+            "to": "n_status.condition"
+          },
+          {
+            "from": "n_ready.value",
+            "to": "n_status.ifTrue"
+          },
+          {
+            "from": "n_incomplete.value",
+            "to": "n_status.ifFalse"
+          },
+          {
+            "from": "ev_email.fire",
+            "to": "a_email.exec"
+          },
+          {
+            "from": "ev_email.payload",
+            "to": "a_email.value"
+          },
+          {
+            "from": "ev_pass.fire",
+            "to": "a_pass.exec"
+          },
+          {
+            "from": "ev_pass.payload",
+            "to": "a_pass.value"
+          },
+          {
+            "from": "ev_again.fire",
+            "to": "a_again.exec"
+          },
+          {
+            "from": "ev_again.payload",
+            "to": "a_again.value"
+          },
+          {
+            "from": "ev_accept.fire",
+            "to": "a_accept.exec"
+          },
+          {
+            "from": "ev_submit.fire",
+            "to": "a_submit.exec"
+          },
+          {
+            "from": "n_status.out",
+            "to": "a_submit.message"
+          }
+        ]
+      },
+      "layout": {
+        "a_accept": [
+          704.0,
+          512.0
+        ],
+        "a_again": [
+          272.0,
+          704.0
+        ],
+        "a_email": [
+          272.0,
+          512.0
+        ],
+        "a_pass": [
+          272.0,
+          608.0
+        ],
+        "a_submit": [
+          704.0,
+          608.0
+        ],
+        "c_state": [
+          32.0,
+          32.0
+        ],
+        "c_summary": [
+          624.0,
+          32.0
+        ],
+        "ev_accept": [
+          480.0,
+          512.0
+        ],
+        "ev_again": [
+          48.0,
+          704.0
+        ],
+        "ev_email": [
+          48.0,
+          512.0
+        ],
+        "ev_pass": [
+          48.0,
+          608.0
+        ],
+        "ev_submit": [
+          480.0,
+          608.0
+        ],
+        "g_again": [
+          368.0,
+          368.0
+        ],
+        "g_email": [
+          368.0,
+          80.0
+        ],
+        "g_pass": [
+          368.0,
+          224.0
+        ],
+        "n_accepted": [
+          48.0,
+          320.0
+        ],
+        "n_again_blank": [
+          1472.0,
+          1008.0
+        ],
+        "n_again_len": [
+          1264.0,
+          848.0
+        ],
+        "n_again_long": [
+          1472.0,
+          880.0
+        ],
+        "n_again_min": [
+          1264.0,
+          928.0
+        ],
+        "n_again_msg": [
+          1888.0,
+          992.0
+        ],
+        "n_again_ok": [
+          1680.0,
+          944.0
+        ],
+        "n_again_say": [
+          1472.0,
+          1088.0
+        ],
+        "n_again_shape": [
+          1264.0,
+          1008.0
+        ],
+        "n_bend_a": [
+          592.0,
+          160.0
+        ],
+        "n_bend_b": [
+          592.0,
+          224.0
+        ],
+        "n_confirm": [
+          48.0,
+          240.0
+        ],
+        "n_creds_ok": [
+          640.0,
+          80.0
+        ],
+        "n_email": [
+          48.0,
+          80.0
+        ],
+        "n_email_blank": [
+          1472.0,
+          240.0
+        ],
+        "n_email_len": [
+          1264.0,
+          80.0
+        ],
+        "n_email_long": [
+          1472.0,
+          112.0
+        ],
+        "n_email_min": [
+          1264.0,
+          160.0
+        ],
+        "n_email_msg": [
+          1888.0,
+          224.0
+        ],
+        "n_email_ok": [
+          1680.0,
+          176.0
+        ],
+        "n_email_say": [
+          1472.0,
+          320.0
+        ],
+        "n_email_shape": [
+          1264.0,
+          240.0
+        ],
+        "n_fields_ok": [
+          640.0,
+          160.0
+        ],
+        "n_form_ok": [
+          640.0,
+          240.0
+        ],
+        "n_incomplete": [
+          848.0,
+          160.0
+        ],
+        "n_pass_blank": [
+          1472.0,
+          624.0
+        ],
+        "n_pass_len": [
+          1264.0,
+          464.0
+        ],
+        "n_pass_long": [
+          1472.0,
+          496.0
+        ],
+        "n_pass_min": [
+          1264.0,
+          544.0
+        ],
+        "n_pass_msg": [
+          1888.0,
+          608.0
+        ],
+        "n_pass_ok": [
+          1680.0,
+          560.0
+        ],
+        "n_pass_say": [
+          1472.0,
+          704.0
+        ],
+        "n_pass_shape": [
+          1264.0,
+          624.0
+        ],
+        "n_password": [
+          48.0,
+          160.0
+        ],
+        "n_ready": [
+          848.0,
+          80.0
+        ],
+        "n_status": [
+          848.0,
+          240.0
+        ]
+      }
+    }
+  ]
+}

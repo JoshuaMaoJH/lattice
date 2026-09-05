@@ -201,6 +201,57 @@ final class Project {
         'prefabs': [for (final p in prefabs) p.id],
       };
 
+  /// The whole project as one JSON object.
+  ///
+  /// The directory form (§7.4) is what a project lives in — one file per page
+  /// keeps git diffs local. This flat form exists for the places that have no
+  /// directory to read: a demo bundled into an application, a project pasted
+  /// into an issue.
+  Map<String, Object?> toBundleJson() => pruneEmpty({
+        'config': config.toJson(),
+        'id': id,
+        'models': [for (final m in models) m.toJson()],
+        'pages': [for (final p in pages) p.toJson()],
+        'prefabs': [for (final p in prefabs) p.toJson()],
+      });
+
+  factory Project.fromBundleJson(
+    Map<String, Object?> json, {
+    String path = 'bundle',
+  }) {
+    final rawPages = json.arrOrEmpty('pages', path);
+    final rawModels = json.arrOrEmpty('models', path);
+    final rawPrefabs = json.arrOrEmpty('prefabs', path);
+    return Project(
+      id: json.strOr('id', 'project'),
+      config: ProjectConfig.fromJson(
+        json.objOrNull('config', path) ?? const {},
+        '$path.config',
+      ),
+      models: [
+        for (var i = 0; i < rawModels.length; i++)
+          DataModelDef.fromJson(
+            asObj(rawModels[i], '$path.models[$i]'),
+            '$path.models[$i]',
+          ),
+      ],
+      prefabs: [
+        for (var i = 0; i < rawPrefabs.length; i++)
+          Prefab.fromJson(
+            asObj(rawPrefabs[i], '$path.prefabs[$i]'),
+            path: '$path.prefabs[$i]',
+          ),
+      ],
+      pages: [
+        for (var i = 0; i < rawPages.length; i++)
+          Page.fromJson(
+            asObj(rawPages[i], '$path.pages[$i]'),
+            path: '$path.pages[$i]',
+          ),
+      ],
+    );
+  }
+
   Page? page(String id) => pages.firstWhereOrNull((p) => p.id == id);
 
   DataModelDef? model(String name) =>

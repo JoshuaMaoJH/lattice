@@ -561,7 +561,31 @@ class _ConfigRow extends StatelessWidget {
         children: [
           Text(configKey, style: LatticeTheme.mono),
           const SizedBox(height: 4),
-          if (value is Map || value is List)
+          if (value is List)
+            // A list config — a Subgraph's members, most of all — is editable
+            // as comma-separated ids. Without multi-select on the canvas this
+            // is how a fold gets its contents.
+            _ValueField(
+              initial: value.whereType<Object>().join(', '),
+              hint: 'node ids, comma separated',
+              onSubmit: (text) {
+                final items = [
+                  for (final part in text.split(','))
+                    if (part.trim().isNotEmpty) part.trim(),
+                ];
+                controller.apply(
+                  'Set $configKey',
+                  (project) => ProjectEdits.setNodeConfig(
+                    project,
+                    controller.activeUnitId,
+                    node.id,
+                    configKey,
+                    items.isEmpty ? null : items,
+                  ),
+                );
+              },
+            )
+          else if (value is Map)
             Text('$value', style: LatticeTheme.monoSmall)
           else
             _ValueField(

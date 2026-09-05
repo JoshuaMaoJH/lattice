@@ -26,6 +26,11 @@ final class PinSlot {
   final bool isPlaceholder;
 }
 
+/// How a node is drawn. Not every node is a card: a reroute is a dot whose
+/// whole job is to bend an edge, and a comment is a region drawn behind
+/// everything else (§7.2, R14).
+enum NodeShape { card, reroute, comment }
+
 /// Where a node and its pins sit on the canvas.
 ///
 /// Geometry is computed, never measured: pin positions have to be known while
@@ -40,6 +45,19 @@ class NodeLayout {
   static const double padTop = 4;
   static const double padBottom = 8;
   static const double pinRadius = 4.5;
+
+  /// A reroute is a dot; it has no header and no labels.
+  static const double rerouteSize = 26;
+
+  static const double commentMinWidth = 160;
+  static const double commentMinHeight = 80;
+  static const double commentHeaderHeight = 22;
+
+  static NodeShape shapeOf(String nodeType) => switch (nodeType) {
+        'Reroute' => NodeShape.reroute,
+        'Comment' => NodeShape.comment,
+        _ => NodeShape.card,
+      };
 
   /// The lattice nodes snap to.
   static const double grid = 16;
@@ -125,6 +143,21 @@ class NodeLayout {
   static double heightFor(int slotCount) =>
       headerHeight + padTop + slotCount * rowHeight + padBottom;
 
+  /// The size a node occupies, by shape.
+  static Size sizeFor(GraphNode node, int slotCount) =>
+      switch (shapeOf(node.type)) {
+        NodeShape.reroute => const Size(rerouteSize, rerouteSize),
+        NodeShape.comment => Size(
+            (node.get<num>('width') ?? 320)
+                .toDouble()
+                .clamp(commentMinWidth, 2000),
+            (node.get<num>('height') ?? 160)
+                .toDouble()
+                .clamp(commentMinHeight, 2000),
+          ),
+        NodeShape.card => Size(width, heightFor(slotCount)),
+      };
+
   static Rect rectFor(
     WidgetUnit unit,
     GraphNode node,
@@ -132,24 +165,28 @@ class NodeLayout {
   ) {
     final position = positionOf(unit, node.id);
     final slots = slotsFor(node, context, unit.graph);
-    return Rect.fromLTWH(
-      position.dx,
-      position.dy,
-      width,
-      heightFor(slots.length),
-    );
+    final size = sizeFor(node, slots.length);
+    return Rect.fromLTWH(position.dx, position.dy, size.width, size.height);
   }
 
   /// The centre of one socket in canvas coordinates.
-  static Offset pinCenter(Rect rect, int slotIndex, {required bool isInput}) =>
-      Offset(
-        isInput ? rect.left : rect.right,
-        rect.top +
-            headerHeight +
-            padTop +
-            slotIndex * rowHeight +
-            rowHeight / 2,
-      );
+  ///
+  /// A reroute puts both of its pins on its vertical centre line, which is
+  /// what makes an edge appear to pass straight through it.
+  static Offset pinCenter(
+    Rect rect,
+    int slotIndex, {
+    required bool isInput,
+    NodeShape shape = NodeShape.card,
+  }) {
+    if (shape == NodeShape.reroute) {
+      return Offset(isInput ? rect.left : rect.right, rect.center.dy);
+    }
+    return Offset(
+      isInput ? rect.left : rect.right,
+      rect.top + headerHeight + padTop + slotIndex * rowHeight + rowHeight / 2,
+    );
+  }
 
   /// A short glyph standing for the node's role. Shape, not colour — colour is
   /// reserved for types.

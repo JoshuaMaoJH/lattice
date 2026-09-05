@@ -1,0 +1,20 @@
+{
+  "config": {
+    "appName": "Signup",
+    "bundleId": "com.example.signup_app",
+    "description": "A Lattice example: form validation, folded into groups.",
+    "organization": "com.example",
+    "packageName": "signup_app",
+    "runtime": "signals",
+    "targets": [
+      "linux",
+      "web"
+    ],
+    "version": "1.0.0+1"
+  },
+  "id": "signup",
+  "pages": [
+    "page_home"
+  ],
+  "prefabs": []
+}

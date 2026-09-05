@@ -736,6 +736,10 @@ class Validator {
         }
       }
 
+      if (node.type == 'Subgraph') {
+        _validateSubgraph(page, node, out);
+      }
+
       if (node.type == 'Navigate') {
         final route = node.get<String>('route');
         if (route == null) {
@@ -853,6 +857,55 @@ class Validator {
           pageId: page.id,
           nodeId: node.id,
           pin: pin.name,
+        ));
+      }
+    }
+  }
+
+  /// A fold is only ever wrong in three ways: it names a node that is not
+  /// there, it names itself, or it claims a node another fold already owns.
+  void _validateSubgraph(
+    WidgetUnit page,
+    GraphNode node,
+    List<Diagnostic> out,
+  ) {
+    final members = node.get<List<Object?>>('members') ?? const [];
+
+    for (final entry in members) {
+      if (entry is! String) continue;
+      if (entry == node.id) {
+        out.add(Diagnostic.error(
+          code: 'subgraph_self_member',
+          message: 'A Subgraph cannot contain itself.',
+          pageId: page.id,
+          nodeId: node.id,
+        ));
+        continue;
+      }
+      if (page.graph.node(entry) == null) {
+        out.add(Diagnostic.error(
+          code: 'unknown_subgraph_member',
+          message:
+              'Subgraph lists "$entry", which is not a node in this graph.',
+          pageId: page.id,
+          nodeId: node.id,
+        ));
+      }
+    }
+
+    for (final other in page.graph.ofType('Subgraph')) {
+      if (other.id == node.id) continue;
+      final theirs = (other.get<List<Object?>>('members') ?? const [])
+          .whereType<String>()
+          .toSet();
+      final shared = members.whereType<String>().toSet().intersection(theirs);
+      if (shared.isNotEmpty && node.id.compareTo(other.id) < 0) {
+        out.add(Diagnostic.error(
+          code: 'subgraph_overlap',
+          message: 'Subgraphs "${node.id}" and "${other.id}" both claim '
+              '${shared.join(', ')}. A node belongs to at most one fold.',
+          pageId: page.id,
+          nodeId: node.id,
         ));
       }
     }

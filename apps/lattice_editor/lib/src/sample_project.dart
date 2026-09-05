@@ -1,4 +1,24 @@
+import 'dart:convert';
+
+import 'package:flutter/services.dart';
 import 'package:lattice_core/lattice_core.dart';
+
+/// The project the editor opens with when it was given no directory.
+///
+/// On the web there is never a directory, so this is the only project that
+/// build can show — which is why it is the fifty-node example rather than the
+/// counter: a demo should show what the tool is for.
+Future<Project> demoProject() async {
+  try {
+    final source = await rootBundle.loadString('assets/demo/signup.json');
+    return Project.fromBundleJson(
+      jsonDecode(source) as Map<String, Object?>,
+    );
+  } on Object {
+    // A missing or unreadable bundle is not worth failing to start over.
+    return sampleProject();
+  }
+}
 
 /// The §8 counter, in memory.
 ///

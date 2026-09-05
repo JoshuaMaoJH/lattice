@@ -87,7 +87,8 @@
 
 | 节点 | 输入 | 输出 | 配置 | 说明 |
 |---|---|---|---|---|
-| `Comment` | — | — | — | A note on the canvas. Ignored by codegen. |
+| `Subgraph` | — | — | `name`, `members`, `collapsed` | Folds a group of nodes into one box (§7.2, R14). Purely organisational: the members stay in the graph, so nothing about the generated code changes. |
+| `Comment` | — | — | `text`, `width`, `height` | A note on the canvas. Ignored by codegen. |
 | `Reroute` | ● `in*`: dynamic | ● `out`: dynamic | `dartType` | A pass-through, for tidying edges. |
 
 ## Widget 白名单
