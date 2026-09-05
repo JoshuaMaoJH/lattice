@@ -13,8 +13,10 @@ class AppEmitter {
     final appClass = '${Naming.pascal(config.appName)}App';
     final home = project.homePage;
 
+    // A page with parameters cannot be a `const` tear-off: its builder has to
+    // unpack `settings.arguments` first (R12).
     final routes = {
-      for (final page in project.pages) page.route: 'const ${page.className}()',
+      for (final page in project.pages) page.route: _routeBuilder(page),
     };
 
     final library = Library(
@@ -69,7 +71,7 @@ return MaterialApp(
   theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
   initialRoute: '${_escape(home?.route ?? '/')}',
   routes: {
-${routes.entries.map((e) => "    '${_escape(e.key)}': (context) => ${e.value},").join('\n')}
+${routes.entries.map((e) => "    '${_escape(e.key)}': ${e.value},").join('\n')}
   },
 );'''),
                 ),
@@ -79,6 +81,47 @@ ${routes.entries.map((e) => "    '${_escape(e.key)}': (context) => ${e.value},")
     );
 
     return '$_header\n${library.accept(newEmitter())}';
+  }
+
+  String _routeBuilder(Page page) {
+    if (page.parameters.isEmpty) {
+      return '(context) => const ${page.className}()';
+    }
+    final reads = page.parameters.map(_readArgument).join(', ');
+    return '''(context) {
+      final arguments =
+          ModalRoute.of(context)!.settings.arguments as Map<String, Object?>? ??
+          const {};
+      return ${page.className}($reads);
+    }''';
+  }
+
+  /// One constructor argument, read out of the navigation arguments.
+  String _readArgument(FieldDef parameter) {
+    final access = "arguments['${parameter.name}']";
+    final type = parameter.type;
+    if (parameter.defaultValue != null) {
+      final fallback = _defaultLiteral(parameter);
+      return '${parameter.name}: $access == null ? $fallback '
+          ': $access as ${_nonNull(type).dartName}';
+    }
+    if (type is NullableType) {
+      return '${parameter.name}: $access as ${type.dartName}';
+    }
+    return '${parameter.name}: $access! as ${type.dartName}';
+  }
+
+  static LatticeType _nonNull(LatticeType type) =>
+      type is NullableType ? type.inner : type;
+
+  static String _defaultLiteral(FieldDef parameter) {
+    final value = parameter.defaultValue;
+    return switch (value) {
+      final String s => "'${s.replaceAll(r'\', r'\\').replaceAll("'", r"\'")}'",
+      final bool b => '$b',
+      final num n => '$n',
+      _ => 'null',
+    };
   }
 
   static const _header = '''

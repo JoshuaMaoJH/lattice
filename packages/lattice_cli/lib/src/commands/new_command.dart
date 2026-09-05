@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:lattice_codegen/lattice_codegen.dart';
 import 'package:lattice_core/lattice_core.dart';
 import 'package:path/path.dart' as p;
 
@@ -68,6 +69,11 @@ class NewCommand extends LatticeCommand {
     );
 
     await ProjectIo.save(project, root);
+    await File(p.join(root, 'custom', 'README.md'))
+        .create(recursive: true)
+        .then(
+          (file) => file.writeAsString(const SupportFiles().customReadme()),
+        );
     console.success('Created ${p.relative(root)}');
     console.info('');
     console.info('  lattice run ${p.relative(root)}');

@@ -5,6 +5,7 @@ import '../model/data_model.dart';
 import '../model/errors.dart';
 import '../model/json_utils.dart';
 import '../model/page.dart';
+import '../model/prefab.dart';
 import '../model/project.dart';
 
 /// Reads and writes the on-disk project format (§7.4).
@@ -52,6 +53,25 @@ class ProjectIo {
       }
     }
 
+    final prefabs = <Prefab>[];
+    final prefabsDir = Directory('$root/prefabs');
+    if (prefabsDir.existsSync()) {
+      final files = prefabsDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      for (final file in files) {
+        prefabs.add(
+          Prefab.fromJson(
+            asObj(jsonDecode(await file.readAsString()), file.path),
+            path: file.path,
+          ),
+        );
+      }
+    }
+
     // The manifest's `pages` array fixes declaration order; anything found on
     // disk but unlisted is appended so a hand-added file is never silently
     // ignored.
@@ -84,7 +104,12 @@ class ProjectIo {
       );
     }
 
-    return Project.fromManifest(manifestJson, pages: pages, models: models);
+    return Project.fromManifest(
+      manifestJson,
+      pages: pages,
+      models: models,
+      prefabs: prefabs,
+    );
   }
 
   static Future<void> save(Project project, String root) async {
@@ -97,6 +122,15 @@ class ProjectIo {
     for (final page in project.pages) {
       await File('${pagesDir.path}/${page.id}.json')
           .writeAsString('${_encoder.convert(page.toJson())}\n');
+    }
+
+    if (project.prefabs.isNotEmpty) {
+      final prefabsDir = Directory('$root/prefabs');
+      await prefabsDir.create(recursive: true);
+      for (final prefab in project.prefabs) {
+        await File('${prefabsDir.path}/${prefab.id}.json')
+            .writeAsString('${_encoder.convert(prefab.toJson())}\n');
+      }
     }
 
     if (project.models.isNotEmpty) {

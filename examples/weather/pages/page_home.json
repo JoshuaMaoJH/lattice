@@ -1,0 +1,361 @@
+{
+  "id": "page_home",
+  "name": "Home",
+  "route": "/",
+  "isHome": true,
+  "hierarchy": {
+    "id": "w_root",
+    "type": "Scaffold",
+    "props": {
+      "appBar": {
+        "id": "w_appbar",
+        "type": "AppBar",
+        "props": {
+          "title": {
+            "id": "w_title",
+            "type": "Text",
+            "props": {
+              "data": "Weather"
+            }
+          }
+        }
+      }
+    },
+    "children": [
+      {
+        "id": "w_pad",
+        "type": "Padding",
+        "props": {
+          "padding": 24
+        },
+        "children": [
+          {
+            "id": "w_col",
+            "type": "Column",
+            "props": {
+              "crossAxisAlignment": "stretch"
+            },
+            "children": [
+              {
+                "id": "w_city",
+                "type": "TextField",
+                "props": {
+                  "hintText": "Berlin, Tokyo, Paris…",
+                  "labelText": "City",
+                  "onChanged": {
+                    "$event": "ev_city"
+                  },
+                  "text": {
+                    "$bind": "n_city.value"
+                  }
+                }
+              },
+              {
+                "id": "w_gap",
+                "type": "SizedBox",
+                "props": {
+                  "height": 16
+                }
+              },
+              {
+                "id": "w_fetch",
+                "type": "ElevatedButton",
+                "props": {
+                  "onPressed": {
+                    "$event": "ev_fetch"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_fetch_label",
+                    "type": "Text",
+                    "props": {
+                      "data": "Get forecast"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "w_gap2",
+                "type": "SizedBox",
+                "props": {
+                  "height": 24
+                }
+              },
+              {
+                "id": "w_if_loading",
+                "type": "If",
+                "props": {
+                  "condition": {
+                    "$bind": "n_loading.value"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_spinner",
+                    "type": "CircularProgressIndicator"
+                  }
+                ]
+              },
+              {
+                "id": "w_if_error",
+                "type": "If",
+                "props": {
+                  "condition": {
+                    "$bind": "n_hasError.out"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_error",
+                    "type": "Text",
+                    "props": {
+                      "data": {
+                        "$bind": "n_errorText.out"
+                      },
+                      "style": {
+                        "color": "#B3261E"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "w_if_result",
+                "type": "If",
+                "props": {
+                  "condition": {
+                    "$bind": "n_hasForecast.out"
+                  }
+                },
+                "children": [
+                  {
+                    "id": "w_result",
+                    "type": "Column",
+                    "props": {
+                      "mainAxisSize": "min"
+                    },
+                    "children": [
+                      {
+                        "id": "w_temp",
+                        "type": "Text",
+                        "props": {
+                          "data": {
+                            "$bind": "n_tempText.out"
+                          },
+                          "style": {
+                            "fontSize": 40,
+                            "fontWeight": "bold"
+                          }
+                        }
+                      },
+                      {
+                        "id": "w_wind",
+                        "type": "Text",
+                        "props": {
+                          "data": {
+                            "$bind": "n_windText.out"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "dartType": "String",
+        "id": "n_city",
+        "init": "Berlin",
+        "name": "city",
+        "type": "Signal"
+      },
+      {
+        "dartType": "Forecast?",
+        "id": "n_forecast",
+        "name": "forecast",
+        "type": "Signal"
+      },
+      {
+        "dartType": "bool",
+        "id": "n_loading",
+        "init": false,
+        "name": "loading",
+        "type": "Signal"
+      },
+      {
+        "dartType": "String?",
+        "id": "n_error",
+        "name": "error",
+        "type": "Signal"
+      },
+      {
+        "body": "return forecastUrl(city);",
+        "dartType": "String",
+        "id": "n_url",
+        "imports": [
+          "custom/cities.dart"
+        ],
+        "inputs": {
+          "city": "String"
+        },
+        "name": "urlFor",
+        "type": "DartCode"
+      },
+      {
+        "dartType": "bool",
+        "expr": "message != null",
+        "id": "n_hasError",
+        "inputs": {
+          "message": "String?"
+        },
+        "name": "hasError",
+        "type": "Computed"
+      },
+      {
+        "dartType": "String",
+        "expr": "message ?? ''",
+        "id": "n_errorText",
+        "inputs": {
+          "message": "String?"
+        },
+        "name": "errorText",
+        "type": "Computed"
+      },
+      {
+        "dartType": "bool",
+        "expr": "forecast != null",
+        "id": "n_hasForecast",
+        "inputs": {
+          "forecast": "Forecast?"
+        },
+        "name": "hasForecast",
+        "type": "Computed"
+      },
+      {
+        "dartType": "String",
+        "expr": "forecast == null ? '—' : '${forecast.currentWeather.temperature} °C'",
+        "id": "n_tempText",
+        "inputs": {
+          "forecast": "Forecast?"
+        },
+        "name": "temperatureText",
+        "type": "Computed"
+      },
+      {
+        "dartType": "String",
+        "expr": "forecast == null ? '' : 'Wind ${forecast.currentWeather.windspeed} km/h'",
+        "id": "n_windText",
+        "inputs": {
+          "forecast": "Forecast?"
+        },
+        "name": "windText",
+        "type": "Computed"
+      },
+      {
+        "event": "onChanged",
+        "id": "ev_city",
+        "type": "Event",
+        "widget": "w_city"
+      },
+      {
+        "id": "a_city",
+        "signal": "n_city",
+        "type": "SetSignal"
+      },
+      {
+        "event": "onPressed",
+        "id": "ev_fetch",
+        "type": "Event",
+        "widget": "w_fetch"
+      },
+      {
+        "errorSignal": "n_error",
+        "id": "a_fetch",
+        "loadingSignal": "n_loading",
+        "method": "GET",
+        "signal": "n_forecast",
+        "type": "HttpRequest"
+      }
+    ],
+    "edges": [
+      {
+        "from": "n_city.value",
+        "to": "n_url.city"
+      },
+      {
+        "from": "n_error.value",
+        "to": "n_hasError.message"
+      },
+      {
+        "from": "n_error.value",
+        "to": "n_errorText.message"
+      },
+      {
+        "from": "n_forecast.value",
+        "to": "n_hasForecast.forecast"
+      },
+      {
+        "from": "n_forecast.value",
+        "to": "n_tempText.forecast"
+      },
+      {
+        "from": "n_forecast.value",
+        "to": "n_windText.forecast"
+      },
+      {
+        "from": "ev_city.fire",
+        "to": "a_city.exec"
+      },
+      {
+        "from": "ev_city.payload",
+        "to": "a_city.value"
+      },
+      {
+        "from": "ev_fetch.fire",
+        "to": "a_fetch.exec"
+      },
+      {
+        "from": "n_url.out",
+        "to": "a_fetch.url"
+      }
+    ]
+  },
+  "layout": {
+    "a_fetch": [
+      560.0,
+      460.0
+    ],
+    "ev_fetch": [
+      340.0,
+      460.0
+    ],
+    "n_city": [
+      80.0,
+      60.0
+    ],
+    "n_error": [
+      80.0,
+      360.0
+    ],
+    "n_forecast": [
+      80.0,
+      160.0
+    ],
+    "n_loading": [
+      80.0,
+      260.0
+    ],
+    "n_url": [
+      340.0,
+      60.0
+    ]
+  }
+}

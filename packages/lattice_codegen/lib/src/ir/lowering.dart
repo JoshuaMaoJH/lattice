@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:code_builder/code_builder.dart';
 import 'package:collection/collection.dart';
 import 'package:lattice_core/lattice_core.dart';
@@ -26,26 +28,28 @@ class Lowering {
   ProjectIr lower(Project project) => ProjectIr(
         project: project,
         pages: [
-          for (final page in project.pages) _PageLowering(project, page).run(),
+          for (final unit in project.units) _PageLowering(project, unit).run(),
         ],
       );
 }
 
 class _PageLowering {
-  _PageLowering(this.project, this.page)
-      : graph = page.graph,
+  _PageLowering(this.project, this.unit)
+      : graph = unit.graph,
         literals = LiteralEmitter(models: project.models) {
-    ctx = NodeContext(graph: graph, page: page, project: project);
+    ctx = NodeContext(graph: graph, unit: unit, project: project);
   }
 
   final Project project;
-  final Page page;
+  final WidgetUnit unit;
   final Graph graph;
   final LiteralEmitter literals;
   late final NodeContext ctx;
 
   final Namer namer = Namer(const ['context', 'widget', 'key', 'build']);
-  late final ScopeMap scopes = ScopeMap.of(page);
+  late final ScopeMap scopes = ScopeMap.of(unit);
+  late final WidgetLookup widgets = WidgetLookup(project);
+  final SplayTreeSet<String> usedPrefabs = SplayTreeSet<String>();
 
   /// ForEach widget id -> the loop variables its template runs under.
   final Map<String, _ScopeVars> scopeVars = {};
@@ -59,6 +63,21 @@ class _PageLowering {
   final List<HandlerIr> handlers = [];
   final Map<String, String> handlerNames = {};
   final Map<String, Set<String>> _signalCache = {};
+  final List<ControllerIr> controllers = [];
+  final SplayTreeSet<String> extraImports = SplayTreeSet<String>();
+
+  /// Whether this page compiles to a `StatefulWidget`.
+  ///
+  /// Decided structurally before anything is lowered, because `PageParam`
+  /// reads a constructor field — reachable as `widget.x` from a State, and as
+  /// plain `x` from a StatelessWidget.
+  late final bool isStateful = unit.isStateful;
+
+  bool _usesHttp = false;
+  bool _usesJson = false;
+
+  /// Set while lowering one handler; an awaited action flips it.
+  bool _chainIsAsync = false;
 
   /// The parameter name for the payload of the handler currently being
   /// lowered; `Event.payload` resolves to it.
@@ -73,18 +92,23 @@ class _PageLowering {
     _planHoists();
     _lowerHandlers();
 
-    final body = _lowerWidget(page.hierarchy, insideBoundary: false);
+    final body = _lowerWidget(unit.hierarchy, insideBoundary: false);
 
     return PageIr(
-      page: page,
-      className: page.className,
-      fileName: page.fileName,
+      unit: unit,
+      className: unit.className,
+      fileName: unit.fileName,
       signals: signals,
       hoisted: hoists.values.toList(),
       helpers: helpers.values.toList(),
       handlers: handlers,
+      controllers: controllers,
       body: body,
       usesModels: _usesModels,
+      extraImports: extraImports.toList(),
+      usesHttp: _usesHttp,
+      usesJson: _usesJson,
+      usedPrefabs: usedPrefabs.toList(),
     );
   }
 
@@ -106,7 +130,7 @@ class _PageLowering {
           ? _zeroValue(type, node)
           : literals.emit(type, raw,
               where: 'Signal ${node.id} init',
-              pageId: page.id,
+              pageId: unit.id,
               nodeId: node.id);
 
       signals.add(
@@ -138,7 +162,7 @@ class _PageLowering {
           ),
         _ => throw CodegenException(
             'Signal "${node.id}" of type ${type.dartName} needs an "init" value.',
-            pageId: page.id,
+            pageId: unit.id,
             nodeId: node.id,
           ),
       };
@@ -149,7 +173,7 @@ class _PageLowering {
   /// as methods rather than inline closures, need to know what to call their
   /// parameters (ADR-009).
   void _collectScopeVars() {
-    for (final widget in page.hierarchy.descendantsAndSelf) {
+    for (final widget in unit.hierarchy.descendantsAndSelf) {
       if (widget.type != 'ForEach') continue;
       scopeVars[widget.id] = _ScopeVars(
         item: namer.take('item'),
@@ -182,9 +206,13 @@ class _PageLowering {
         throw CodegenException(
           '${node.type} node "${node.id}" has no '
           '${node.type == 'Computed' ? 'expr' : 'body'}.',
-          pageId: page.id,
+          pageId: unit.id,
           nodeId: node.id,
         );
+      }
+
+      for (final entry in node.get<List<Object?>>('imports') ?? const []) {
+        if (entry is String && entry.isNotEmpty) extraImports.add(entry);
       }
 
       final name = namer.take(
@@ -211,7 +239,7 @@ class _PageLowering {
     for (final edge in graph.edges) {
       bump(edge.from);
     }
-    for (final widget in page.hierarchy.descendantsAndSelf) {
+    for (final widget in unit.hierarchy.descendantsAndSelf) {
       for (final prop in widget.props.values) {
         if (prop is BindProp) bump(prop.source);
       }
@@ -337,7 +365,7 @@ class _PageLowering {
     final node = graph.node(ref.nodeId);
     if (node == null) {
       throw CodegenException('No node "${ref.nodeId}" for pin "$ref".',
-          pageId: page.id);
+          pageId: unit.id);
     }
 
     switch (node.type) {
@@ -349,10 +377,27 @@ class _PageLowering {
         final type = ctx.resolve(node.get<String>('dartType'));
         _noteModelUse(type);
         return literals.emit(type, node.config['value'],
-            where: 'Const ${node.id}', pageId: page.id, nodeId: node.id);
+            where: 'Const ${node.id}', pageId: unit.id, nodeId: node.id);
 
       case 'Reroute':
         return _input(node, 'in');
+
+      case 'PageParam':
+        final name = node.get<String>('name');
+        final parameter = name == null ? null : unit.parameter(name);
+        if (parameter == null) {
+          throw CodegenException(
+            'PageParam "${node.id}" names no parameter of this page.',
+            pageId: unit.id,
+            nodeId: node.id,
+          );
+        }
+        _noteModelUse(parameter.type);
+        return Emitted.plain(
+          isStateful
+              ? refer('widget').property(parameter.name)
+              : refer(parameter.name),
+        );
 
       case 'ForEachItem':
         final owner = node.get<String>('forEach');
@@ -360,7 +405,7 @@ class _PageLowering {
         if (vars == null) {
           throw CodegenException(
             'ForEachItem "${node.id}" does not name a ForEach in this page.',
-            pageId: page.id,
+            pageId: unit.id,
             nodeId: node.id,
           );
         }
@@ -369,7 +414,7 @@ class _PageLowering {
           'index' => Emitted.plain(refer(vars.index)),
           _ => throw CodegenException(
               'ForEachItem has no pin "${ref.pin}".',
-              pageId: page.id,
+              pageId: unit.id,
               nodeId: node.id,
             ),
         };
@@ -535,7 +580,7 @@ class _PageLowering {
         if (ref.pin != 'payload') {
           throw CodegenException(
             'Event node "${node.id}" has no data pin "${ref.pin}".',
-            pageId: page.id,
+            pageId: unit.id,
             nodeId: node.id,
           );
         }
@@ -544,7 +589,7 @@ class _PageLowering {
           throw CodegenException(
             'Event payload of "${node.id}" is only readable inside its own '
             'handler chain.',
-            pageId: page.id,
+            pageId: unit.id,
             nodeId: node.id,
           );
         }
@@ -553,7 +598,7 @@ class _PageLowering {
       default:
         throw CodegenException(
           'No lowering for node type "${node.type}".',
-          pageId: page.id,
+          pageId: unit.id,
           nodeId: node.id,
         );
     }
@@ -565,7 +610,7 @@ class _PageLowering {
     if (edge == null) {
       throw CodegenException(
         '${node.type}.$pin has no incoming edge.',
-        pageId: page.id,
+        pageId: unit.id,
         nodeId: node.id,
       );
     }
@@ -635,7 +680,7 @@ class _PageLowering {
       if (widgetId == null || eventName == null) {
         throw CodegenException(
           'Event node "${node.id}" must name a widget and an event.',
-          pageId: page.id,
+          pageId: unit.id,
           nodeId: node.id,
         );
       }
@@ -653,6 +698,7 @@ class _PageLowering {
 
       final statements = <Code>[];
       final trace = <String>[node.id];
+      _chainIsAsync = false;
 
       var edge = graph.outgoing(PinRef(node.id, 'fire')).firstOrNull;
       final visited = <String>{};
@@ -662,7 +708,7 @@ class _PageLowering {
         if (!visited.add(action.id)) {
           throw CodegenException(
             'Action chain from "${node.id}" loops at "${action.id}".',
-            pageId: page.id,
+            pageId: unit.id,
             nodeId: action.id,
           );
         }
@@ -678,6 +724,7 @@ class _PageLowering {
           name: name,
           payloadType: hasPayload ? payloadType : null,
           payloadName: 'value',
+          isAsync: _chainIsAsync,
           scopeParameters: [
             for (final argument in handlerScopeArgs[node.id]!)
               (name: argument.variable, type: argument.type),
@@ -759,7 +806,7 @@ class _PageLowering {
       if (name == null) {
         throw CodegenException(
           '${action.type} "${action.id}" targets an unknown signal.',
-          pageId: page.id,
+          pageId: unit.id,
           nodeId: action.id,
         );
       }
@@ -778,7 +825,7 @@ class _PageLowering {
         if (fn == null || fn.trim().isEmpty) {
           throw CodegenException(
             'UpdateSignal "${action.id}" needs an "fn".',
-            pageId: page.id,
+            pageId: unit.id,
             nodeId: action.id,
           );
         }
@@ -793,16 +840,35 @@ class _PageLowering {
         if (route == null) {
           throw CodegenException(
             'Navigate "${action.id}" needs a "route".',
-            pageId: page.id,
+            pageId: unit.id,
             nodeId: action.id,
           );
         }
         final method = (action.get<bool>('replace') ?? false)
             ? 'pushReplacementNamed'
             : 'pushNamed';
-        return [
-          Code("Navigator.of(context).$method('${_escape(route)}');"),
-        ];
+
+        // One argument per parameter the target page declares; the route table
+        // unpacks them on the other side.
+        final target = ctx.pageForRoute(route);
+        final arguments = <String>[];
+        for (final parameter in target?.parameters ?? const <FieldDef>[]) {
+          final edge = graph.source(PinRef(action.id, parameter.name));
+          if (edge == null) continue;
+          final value = _lowerPin(edge.from);
+          arguments.add(
+            "'${parameter.name}': ${renderExpression(value.bare())}",
+          );
+        }
+
+        final call = StringBuffer(
+          "Navigator.of(context).$method('${_escape(route)}'",
+        );
+        if (arguments.isNotEmpty) {
+          call.write(', arguments: {${arguments.join(', ')}}');
+        }
+        call.write(');');
+        return [Code(call.toString())];
 
       case 'ShowSnackBar':
         final message = _input(action, 'message');
@@ -813,6 +879,9 @@ class _PageLowering {
           ),
         ];
 
+      case 'HttpRequest':
+        return _lowerHttpRequest(action);
+
       case 'Print':
         final message = _input(action, 'message');
         return [
@@ -822,7 +891,109 @@ class _PageLowering {
       default:
         throw CodegenException(
           'No lowering for action "${action.type}".',
-          pageId: page.id,
+          pageId: unit.id,
+          nodeId: action.id,
+        );
+    }
+  }
+
+  /// An HTTP call plus the loading and error bookkeeping a person would write
+  /// around it by hand.
+  List<Code> _lowerHttpRequest(GraphNode action) {
+    _usesHttp = true;
+    _chainIsAsync = true;
+
+    final method = (action.get<String>('method') ?? 'GET').toLowerCase();
+    final url = _input(action, 'url');
+
+    final targetId = action.get<String>('signal');
+    final target = targetId == null ? null : signalNames[targetId];
+    final targetType = ctx.signalType(targetId);
+    if (target == null) {
+      throw CodegenException(
+        'HttpRequest "${action.id}" needs a "signal" to write the result into.',
+        pageId: unit.id,
+        nodeId: action.id,
+      );
+    }
+
+    final loading = signalNames[action.get<String>('loadingSignal')];
+    final failure = signalNames[action.get<String>('errorSignal')];
+
+    final response = namer.take('response');
+    final caught = namer.take('failure');
+    final decoded = _decodeExpression(targetType, '$response.body', action);
+
+    final request = StringBuffer('http.$method(Uri.parse(');
+    request.write(renderExpression(url.bare()));
+    request.write(')');
+    if (method != 'get') {
+      final edge = graph.source(PinRef(action.id, 'body'));
+      if (edge != null) {
+        request
+            .write(', body: ${renderExpression(_lowerPin(edge.from).bare())}');
+      }
+    }
+    request.write(')');
+
+    final body = StringBuffer()
+      ..writeln('try {')
+      ..writeln('  final $response = await $request;')
+      ..writeln('  if ($response.statusCode >= 400) {')
+      ..writeln(
+        "    throw Exception('Request failed: \${$response.statusCode}');",
+      )
+      ..writeln('  }')
+      ..writeln('  $target.value = $decoded;')
+      ..writeln('} catch ($caught) {');
+    if (failure != null) {
+      body.writeln('  $failure.value = $caught.toString();');
+    } else {
+      body.writeln('  debugPrint(\'Request failed: \$$caught\');');
+    }
+    body.writeln('}');
+    if (loading != null) {
+      body.writeln('finally {');
+      body.writeln('  $loading.value = false;');
+      body.writeln('}');
+    }
+
+    return [
+      if (loading != null) Code('$loading.value = true;'),
+      if (failure != null) Code('$failure.value = null;'),
+      Code(body.toString()),
+    ];
+  }
+
+  /// How a response body turns into the target signal's type.
+  String _decodeExpression(
+    LatticeType type,
+    String bodyExpression,
+    GraphNode action,
+  ) {
+    switch (type) {
+      case NullableType(:final inner):
+        return _decodeExpression(inner, bodyExpression, action);
+      case PrimitiveType(kind: PrimitiveKind.string$):
+        return bodyExpression;
+      case ModelType(:final name):
+        _usesJson = true;
+        _noteModelUse(type);
+        return '$name.fromJson('
+            'jsonDecode($bodyExpression) as Map<String, Object?>)';
+      case ListType(element: ModelType(:final name)):
+        _usesJson = true;
+        _noteModelUse(type);
+        return '[for (final entry in jsonDecode($bodyExpression) as List<Object?>) '
+            '$name.fromJson(entry as Map<String, Object?>)]';
+      case MapType() || ListType():
+        _usesJson = true;
+        return 'jsonDecode($bodyExpression) as ${type.dartName}';
+      default:
+        throw CodegenException(
+          'HttpRequest cannot decode a response into ${type.dartName}. '
+          'Use String for the raw body, or a model / list of models for JSON.',
+          pageId: unit.id,
           nodeId: action.id,
         );
     }
@@ -857,20 +1028,23 @@ class _PageLowering {
   // ---------------------------------------------------------------------------
 
   Emitted _lowerWidget(WidgetNode widget, {required bool insideBoundary}) {
-    final schema = WidgetRegistry.lookup(widget.type);
+    final schema = widgets.lookup(widget.type);
     if (schema == null) {
       throw CodegenException(
         '"${widget.type}" is not a known widget.',
-        pageId: page.id,
+        pageId: unit.id,
         widgetId: widget.id,
       );
     }
+    final prefab = project.prefab(widget.type);
+    if (prefab != null) usedPrefabs.add(prefab.fileName);
+
     if (schema.isPseudo) {
       // ForEach and If are not expressions on their own; they are expanded by
       // whichever slot contains them.
       throw CodegenException(
         '${widget.type} cannot be used here.',
-        pageId: page.id,
+        pageId: unit.id,
         widgetId: widget.id,
       );
     }
@@ -891,7 +1065,10 @@ class _PageLowering {
           _lowerProp(widget, schema, param, prop, insideBoundary: covered);
       if (value == null) continue;
 
-      if (param.emitInto != null) {
+      final binding = param.controller;
+      if (binding != null) {
+        named[binding.argument] = _allocateController(widget, binding, value);
+      } else if (param.emitInto != null) {
         composites.putIfAbsent(param.emitInto!, () => {})[param.name] = value;
       } else if (param.positional) {
         positional.add(value);
@@ -972,6 +1149,27 @@ class _PageLowering {
     );
   }
 
+  /// Records a controller for [widget] and returns the reference to pass as
+  /// the constructor argument.
+  Emitted _allocateController(
+    WidgetNode widget,
+    ControllerBinding binding,
+    Emitted value,
+  ) {
+    final name = namer.take('_${Naming.camel(widget.id)}Controller');
+    controllers.add(
+      ControllerIr(
+        widgetId: widget.id,
+        name: name,
+        type: binding.type,
+        property: binding.property,
+        initial: value,
+        isReactive: value.isReactive,
+      ),
+    );
+    return Emitted.plain(refer(name));
+  }
+
   /// Signals read by a widget's *own* arguments — not its children's.
   ///
   /// Computed structurally off the graph rather than from lowered
@@ -980,8 +1178,13 @@ class _PageLowering {
   /// own dependency: those expand inline into its children list, so it is the
   /// container that must rebuild when the list or the condition changes.
   Set<String> _ownSignalDeps(WidgetNode widget) {
+    final schema = widgets.lookup(widget.type);
     final deps = <String>{};
-    for (final prop in widget.props.values) {
+    for (final entry in widget.props.entries) {
+      // A controller pushes updates into the widget itself, so rebuilding the
+      // widget would be wasteful and would reset the cursor.
+      if (schema?.param(entry.key)?.controller != null) continue;
+      final prop = entry.value;
       switch (prop) {
         case BindProp(:final source):
           deps.addAll(_signalsFor(source.nodeId));
@@ -1012,7 +1215,7 @@ class _PageLowering {
       throw CodegenException(
         'ForEach can produce any number of widgets, so it needs a slot that '
         'takes a list of children.',
-        pageId: page.id,
+        pageId: unit.id,
         widgetId: child.id,
       );
     }
@@ -1082,7 +1285,7 @@ class _PageLowering {
     if (vars == null) {
       throw CodegenException(
         'ForEach "${widget.id}" has no loop variables.',
-        pageId: page.id,
+        pageId: unit.id,
         widgetId: widget.id,
       );
     }
@@ -1092,7 +1295,7 @@ class _PageLowering {
     if (items == null) {
       throw CodegenException(
         'ForEach "${widget.id}" has no "items".',
-        pageId: page.id,
+        pageId: unit.id,
         widgetId: widget.id,
       );
     }
@@ -1200,7 +1403,7 @@ class _PageLowering {
     if (condition == null || widget.children.isEmpty) {
       throw CodegenException(
         'If "${widget.id}" needs a condition and one child.',
-        pageId: page.id,
+        pageId: unit.id,
         widgetId: widget.id,
       );
     }
@@ -1222,7 +1425,7 @@ class _PageLowering {
     String name, {
     required bool insideBoundary,
   }) {
-    final schema = WidgetRegistry.lookup(widget.type);
+    final schema = widgets.lookup(widget.type);
     final param = schema?.param(name);
     final prop = widget.props[name];
     if (schema == null || param == null || prop == null) return null;
@@ -1253,7 +1456,7 @@ class _PageLowering {
         _noteModelUse(param.type);
         return literals.emit(param.type, value,
             where: '${widget.type}.${param.name}',
-            pageId: page.id,
+            pageId: unit.id,
             widgetId: widget.id);
 
       case ExprProp(:final code):
@@ -1272,7 +1475,7 @@ class _PageLowering {
           throw CodegenException(
             '${widget.type}.${param.name} refers to unknown event node '
             '"$eventNodeId".',
-            pageId: page.id,
+            pageId: unit.id,
             widgetId: widget.id,
           );
         }

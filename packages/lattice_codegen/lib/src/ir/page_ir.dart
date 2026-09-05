@@ -65,6 +65,41 @@ final class HelperIr {
   final bool isExpressionBody;
 }
 
+/// A Flutter controller the page owns: allocated in `initState`, kept in step
+/// with a signal, disposed in `dispose` (see [ControllerBinding]).
+final class ControllerIr {
+  const ControllerIr({
+    required this.widgetId,
+    required this.name,
+    required this.type,
+    required this.property,
+    required this.initial,
+    required this.isReactive,
+  });
+
+  final String widgetId;
+
+  /// The State field name, e.g. `_inputController`.
+  final String name;
+
+  /// The controller class, e.g. `TextEditingController`.
+  final String type;
+
+  /// The property holding the value, e.g. `text`.
+  final String property;
+
+  /// The bound expression: the controller's seed value, and — when reactive —
+  /// what the sync effect watches.
+  final Emitted initial;
+
+  /// Whether the bound expression reads a signal and therefore needs an
+  /// effect keeping the controller in step.
+  final bool isReactive;
+
+  /// The field holding the effect's disposer.
+  String get disposerName => '${name}Sync';
+}
+
 /// One widget callback, lowered to a method on the page's `State`.
 final class HandlerIr {
   const HandlerIr({
@@ -75,6 +110,7 @@ final class HandlerIr {
     required this.statements,
     required this.trace,
     this.scopeParameters = const [],
+    this.isAsync = false,
   });
 
   final String eventNodeId;
@@ -88,6 +124,11 @@ final class HandlerIr {
 
   final List<Code> statements;
 
+  /// True when the chain contains an awaited action. Flutter accepts a
+  /// `Future<void> Function()` wherever a `VoidCallback` is expected, so the
+  /// call site does not change.
+  final bool isAsync;
+
   /// The chain of action node ids, for the `// ev_btn -> a_inc` comment that
   /// anchors generated code back to the graph (§8).
   final List<String> trace;
@@ -96,24 +137,35 @@ final class HandlerIr {
 /// Everything needed to emit one page file.
 final class PageIr {
   const PageIr({
-    required this.page,
+    required this.unit,
     required this.className,
     required this.fileName,
     required this.signals,
     required this.hoisted,
     required this.helpers,
     required this.handlers,
+    required this.controllers,
     required this.body,
     required this.usesModels,
+    this.extraImports = const [],
+    this.usesHttp = false,
+    this.usesJson = false,
+    this.usedPrefabs = const [],
   });
 
-  final Page page;
+  /// The page or prefab this file was compiled from.
+  final WidgetUnit unit;
+
   final String className;
+
+  /// Values the unit is constructed with (R12, R9).
+  List<FieldDef> get parameters => unit.parameters;
   final String fileName;
   final List<SignalIr> signals;
   final List<HoistedIr> hoisted;
   final List<HelperIr> helpers;
   final List<HandlerIr> handlers;
+  final List<ControllerIr> controllers;
 
   /// The root widget expression for `build()`.
   final Emitted body;
@@ -122,10 +174,32 @@ final class PageIr {
   /// models import.
   final bool usesModels;
 
+  /// Imports requested by `Dart Code` and `Computed` nodes, relative to the
+  /// generated project's `lib/`. This is how a graph reaches hand-written
+  /// helpers in `lib/custom/` (§7.8, R11).
+  final List<String> extraImports;
+
+  /// Whether the page performs an HTTP request, and therefore needs the
+  /// `http` package.
+  final bool usesHttp;
+
+  /// Whether it decodes JSON, and therefore needs `dart:convert`.
+  final bool usesJson;
+
+  /// File names of the prefabs this unit places, for its imports (R9).
+  final List<String> usedPrefabs;
+
   /// A page with no state and no callbacks compiles to a `StatelessWidget`;
   /// there is no reason to pay for a `State` object that holds nothing.
   bool get isStateful =>
-      signals.isNotEmpty || hoisted.isNotEmpty || handlers.isNotEmpty;
+      signals.isNotEmpty ||
+      hoisted.isNotEmpty ||
+      handlers.isNotEmpty ||
+      controllers.isNotEmpty;
+
+  /// Controllers are the only reason a generated page needs `initState` and
+  /// `dispose`; without them the State class is just fields and `build`.
+  bool get needsLifecycle => controllers.isNotEmpty;
 }
 
 /// The lowered form of a whole project.
@@ -137,4 +211,8 @@ final class ProjectIr {
 
   final Project project;
   final List<PageIr> pages;
+
+  /// Whether any page talks HTTP, which decides the generated pubspec's
+  /// dependencies.
+  bool get usesHttp => pages.any((p) => p.usesHttp);
 }

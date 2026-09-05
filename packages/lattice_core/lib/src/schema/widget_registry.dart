@@ -427,6 +427,17 @@ class WidgetRegistry {
       summary: 'A single-line text input.',
       composites: {'decoration': 'InputDecoration'},
       params: [
+        // Two-way: `onChanged` carries edits out, `text` pushes values back in
+        // through a generated TextEditingController.
+        ParamSchema(
+          name: 'text',
+          type: _string,
+          controller: const ControllerBinding(
+            type: 'TextEditingController',
+            argument: 'controller',
+            property: 'text',
+          ),
+        ),
         _callback('onChanged', payload: _string),
         _callback('onSubmitted', payload: _string),
         _v('hintText', _opt(_string), into: 'decoration'),

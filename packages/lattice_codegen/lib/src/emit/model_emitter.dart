@@ -115,7 +115,7 @@ class ModelEmitter {
           ..returns = refer('Map<String, Object?>')
           ..lambda = true
           ..body = Code(
-            '{${model.fields.map((f) => "'${f.name}': ${_toJsonValue(f.type, f.name)}").join(', ')}}',
+            '{${model.fields.map((f) => "'${f.jsonKey}': ${_toJsonValue(f.type, f.name)}").join(', ')}}',
           ),
       );
 
@@ -221,7 +221,7 @@ class ModelEmitter {
 
   /// Reads one field out of decoded JSON.
   String _fromJson(FieldDef field) {
-    final access = "json['${field.name}']";
+    final access = "json['${field.jsonKey}']";
     final type = field.type;
     if (type is NullableType) {
       return '$access == null ? null : ${_decode(type.inner, access)}';

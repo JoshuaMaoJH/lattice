@@ -52,6 +52,7 @@ void main() {
         'README.md',
         '.gitignore',
         '.github/workflows/build.yml',
+        'distribute_options.yaml',
       },
     );
 
@@ -72,6 +73,27 @@ void main() {
       'todo_home_page.dart.txt',
       result.files['lib/pages/home_page.dart']!,
     );
+    expectGolden(
+      'todo_detail_page.dart.txt',
+      result.files['lib/pages/detail_page.dart']!,
+    );
+    expectGolden(
+      'todo_stat_card.dart.txt',
+      result.files['lib/prefabs/stat_card.dart']!,
+    );
+    expectGolden('todo_main.dart.txt', result.files['lib/main.dart']!);
+  });
+
+  test('the weather example generates the expected page', () async {
+    final project = await ProjectIo.load('../../examples/weather');
+    final result = const LatticeGenerator().generate(project);
+    expect(result.isSuccess, isTrue, reason: result.diagnostics.join('\n'));
+
+    expectGolden(
+      'weather_home_page.dart.txt',
+      result.files['lib/pages/home_page.dart']!,
+    );
+    expectGolden('weather_models.dart.txt', result.files['lib/models.dart']!);
   });
 
   test('models generate immutable classes with JSON codecs', () {

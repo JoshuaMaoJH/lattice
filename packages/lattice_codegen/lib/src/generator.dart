@@ -36,7 +36,7 @@ class LatticeGenerator {
   const LatticeGenerator();
 
   /// Directories whose contents are always the generator's to replace.
-  static const _ownedDirectories = ['lib/pages'];
+  static const _ownedDirectories = ['lib/pages', 'lib/prefabs'];
 
   /// [runtimePath] is the relative path from the generated project back to
   /// `packages/lattice_runtime`, needed only by the zero-dependency backend.
@@ -73,7 +73,9 @@ class LatticeGenerator {
 
       for (final page in ir.pages) {
         addDart(
-            'lib/pages/${page.fileName}', const PageEmitter().emit(ir, page));
+          'lib/${page.unit.directory}/${page.fileName}',
+          const PageEmitter().emit(ir, page),
+        );
       }
       addDart('lib/main.dart', const AppEmitter().emit(project));
       if (project.models.isNotEmpty) {
@@ -81,11 +83,15 @@ class LatticeGenerator {
       }
 
       const support = SupportFiles();
-      files['pubspec.yaml'] =
-          support.pubspec(project, runtimePath: runtimePath);
+      files['pubspec.yaml'] = support.pubspec(
+        project,
+        runtimePath: runtimePath,
+        usesHttp: ir.usesHttp,
+      );
       files['analysis_options.yaml'] = support.analysisOptions(project);
       files['README.md'] = support.readme(project);
       files['.gitignore'] = support.gitignore();
+      files['distribute_options.yaml'] = support.distributeOptions(project);
       files['.github/workflows/build.yml'] = support.ciWorkflow(project);
     } on CodegenException catch (e) {
       return GenerationResult(
@@ -106,7 +112,18 @@ class LatticeGenerator {
   ///
   /// `lib/custom/` is created if missing and never touched afterwards — that
   /// is the promise the Dart Code escape hatch rests on (§7.8).
-  Future<List<String>> write(GenerationResult result, String outputDir) async {
+  /// [customSource] is the project's own `custom/` directory. Its contents are
+  /// mirrored into the generated project's `lib/custom/`.
+  ///
+  /// The user's hand-written Dart lives in the project directory — the one
+  /// under version control — rather than in `.lattice/build/`, which is
+  /// disposable. Codegen never writes *into* `lib/custom/` beyond this mirror,
+  /// which is what §7.8's promise amounts to in practice.
+  Future<List<String>> write(
+    GenerationResult result,
+    String outputDir, {
+    String? customSource,
+  }) async {
     final written = <String>[];
 
     for (final entry in result.files.entries) {
@@ -121,15 +138,53 @@ class LatticeGenerator {
       written.add(entry.key);
     }
 
-    final custom = Directory(p.join(outputDir, 'lib', 'custom'));
-    if (!custom.existsSync()) {
-      await custom.create(recursive: true);
-      await File(p.join(custom.path, 'README.md'))
-          .writeAsString(const SupportFiles().customReadme());
+    written.addAll(await _mirrorCustom(customSource, outputDir));
+    await _pruneStale(result, outputDir);
+    return written;
+  }
+
+  Future<List<String>> _mirrorCustom(
+    String? customSource,
+    String outputDir,
+  ) async {
+    final target = Directory(p.join(outputDir, 'lib', 'custom'));
+    await target.create(recursive: true);
+
+    final written = <String>[];
+    final readme = File(p.join(target.path, 'README.md'));
+    if (!readme.existsSync()) {
+      await readme.writeAsString(const SupportFiles().customReadme());
       written.add('lib/custom/README.md');
     }
 
-    await _pruneStale(result, outputDir);
+    final source = customSource == null ? null : Directory(customSource);
+    final expected = <String>{'README.md'};
+
+    if (source != null && source.existsSync()) {
+      for (final entity in source.listSync(recursive: true)) {
+        if (entity is! File) continue;
+        final relative = p.relative(entity.path, from: source.path);
+        expected.add(relative);
+        final destination = File(p.join(target.path, relative));
+        await destination.parent.create(recursive: true);
+        final contents = await entity.readAsString();
+        if (destination.existsSync() &&
+            await destination.readAsString() == contents) {
+          continue;
+        }
+        await destination.writeAsString(contents);
+        written.add('lib/custom/$relative');
+      }
+    }
+
+    // A file removed from the project should disappear from the build too,
+    // or a stale helper keeps compiling long after it was deleted.
+    for (final entity in target.listSync(recursive: true)) {
+      if (entity is! File) continue;
+      final relative = p.relative(entity.path, from: target.path);
+      if (!expected.contains(relative)) await entity.delete();
+    }
+
     return written;
   }
 

@@ -1,6 +1,6 @@
 import '../model/graph.dart';
 import '../model/hierarchy.dart';
-import '../model/page.dart';
+import '../model/widget_unit.dart';
 import '../model/pin_ref.dart';
 
 /// Which `ForEach` templates each widget sits inside, and which ones each
@@ -19,7 +19,7 @@ final class ScopeMap {
   /// Graph node id -> `ForEach` widget ids its value depends on.
   final Map<String, Set<String>> _nodeScopes;
 
-  static ScopeMap of(Page page) {
+  static ScopeMap of(WidgetUnit unit) {
     final enclosing = <String, List<String>>{};
 
     void walk(WidgetNode widget, List<String> chain) {
@@ -45,8 +45,8 @@ final class ScopeMap {
       }
     }
 
-    walk(page.hierarchy, const []);
-    return ScopeMap._(enclosing, _resolveNodeScopes(page.graph));
+    walk(unit.hierarchy, const []);
+    return ScopeMap._(enclosing, _resolveNodeScopes(unit.graph));
   }
 
   /// Transitive `ForEachItem` dependencies of every node, by data edges.

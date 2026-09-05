@@ -1,11 +1,12 @@
 import '../model/graph.dart';
 import '../model/hierarchy.dart';
-import '../model/page.dart';
 import '../model/pin_ref.dart';
 import '../model/project.dart';
 import '../schema/node_registry.dart';
 import '../schema/node_schema.dart';
 import '../schema/pin_schema.dart';
+import '../model/widget_unit.dart';
+import '../schema/widget_lookup.dart';
 import '../schema/widget_registry.dart';
 import '../schema/widget_schema.dart';
 import '../types/lattice_type.dart';
@@ -31,6 +32,16 @@ class Validator {
         message: 'The project has no pages; there is nothing to build.',
       ));
     }
+    final home = project.homePage;
+    if (home != null && !home.isDirectlyReachable) {
+      out.add(Diagnostic.error(
+        code: 'home_page_needs_arguments',
+        message: 'The app opens on "${home.id}", but it requires '
+            '${home.parameters.where((p) => p.defaultValue == null).map((p) => p.name).join(', ')}. '
+            'A page reached only by Navigate cannot be the home page.',
+        pageId: home.id,
+      ));
+    }
     if (project.pages.where((p) => p.isHome).length > 1) {
       out.add(const Diagnostic.error(
         code: 'multiple_home_pages',
@@ -52,8 +63,15 @@ class Validator {
     }
 
     _validateModels(project, out);
-    for (final page in project.pages) {
-      _validatePage(project, page, out);
+    _validatePrefabDeclarations(project, out);
+
+    final widgets = WidgetLookup(project);
+    for (final unit in project.units) {
+      for (final parameter in unit.parameters) {
+        _checkTypeResolves(project, parameter.type, out,
+            where: '${unit.id} parameter ${parameter.name}', pageId: unit.id);
+      }
+      _validateUnit(project, unit, widgets, out);
     }
     return ValidationResult(out);
   }
@@ -114,25 +132,107 @@ class Validator {
     }
   }
 
-  void _validatePage(Project project, Page page, List<Diagnostic> out) {
-    final ctx = NodeContext(graph: page.graph, page: page, project: project);
-    final scopes = ScopeMap.of(page);
+  /// Prefab names become Dart class names and Hierarchy types, so they have to
+  /// be unique, spelled like a class, and not shadow a built-in widget.
+  void _validatePrefabDeclarations(Project project, List<Diagnostic> out) {
+    final seen = <String>{};
+    final className = RegExp(r'^[A-Z][A-Za-z0-9_]*$');
 
-    _validateIds(page, out);
-    _validateHierarchy(page, page.hierarchy, null, out);
-    _validateControlFlow(project, page, ctx, out);
-    _validateBindingsAndEvents(project, page, ctx, out);
-    _validateScopes(page, ctx, scopes, out);
-    _validateNodes(project, page, ctx, out);
-    _validateEdges(page, ctx, out);
-    _detectCycles(page, out);
+    for (final prefab in project.prefabs) {
+      if (!seen.add(prefab.name)) {
+        out.add(Diagnostic.error(
+          code: 'duplicate_prefab',
+          message: 'More than one prefab is named "${prefab.name}".',
+          pageId: prefab.id,
+        ));
+      }
+      if (!className.hasMatch(prefab.name)) {
+        out.add(Diagnostic.error(
+          code: 'bad_prefab_name',
+          message: '"${prefab.name}" cannot be a Dart class name. '
+              'Use UpperCamelCase, for example "StatCard".',
+          pageId: prefab.id,
+        ));
+      }
+      if (WidgetRegistry.isKnown(prefab.name)) {
+        out.add(Diagnostic.error(
+          code: 'prefab_shadows_widget',
+          message: '"${prefab.name}" is already a built-in widget. '
+              'Pick another name so a Hierarchy type is never ambiguous.',
+          pageId: prefab.id,
+        ));
+      }
+    }
+
+    _detectPrefabRecursion(project, out);
+  }
+
+  /// A prefab that contains itself would generate a widget that never stops
+  /// building. Caught here rather than at run time.
+  void _detectPrefabRecursion(Project project, List<Diagnostic> out) {
+    final uses = <String, Set<String>>{};
+    for (final prefab in project.prefabs) {
+      uses[prefab.name] = {
+        for (final widget in prefab.hierarchy.descendantsAndSelf)
+          if (project.prefab(widget.type) != null) widget.type,
+      };
+    }
+
+    const white = 0, grey = 1, black = 2;
+    final colour = <String, int>{};
+    final stack = <String>[];
+
+    bool visit(String name) {
+      colour[name] = grey;
+      stack.add(name);
+      for (final used in uses[name] ?? const <String>{}) {
+        final state = colour[used] ?? white;
+        if (state == grey) {
+          final start = stack.indexOf(used);
+          out.add(Diagnostic.error(
+            code: 'prefab_recursion',
+            message: 'Prefabs cannot contain themselves: '
+                '${[...stack.sublist(start), used].join(' -> ')}',
+          ));
+          return true;
+        }
+        if (state == white && visit(used)) return true;
+      }
+      stack.removeLast();
+      colour[name] = black;
+      return false;
+    }
+
+    for (final prefab in project.prefabs) {
+      if ((colour[prefab.name] ?? white) == white && visit(prefab.name)) return;
+    }
+  }
+
+  void _validateUnit(
+    Project project,
+    WidgetUnit unit,
+    WidgetLookup widgets,
+    List<Diagnostic> out,
+  ) {
+    final ctx = NodeContext(graph: unit.graph, unit: unit, project: project);
+    final scopes = ScopeMap.of(unit);
+
+    _validateIds(unit, out);
+    _validateHierarchy(unit, unit.hierarchy, null, widgets, out);
+    _validateControlFlow(project, unit, ctx, widgets, out);
+    _validateBindingsAndEvents(project, unit, ctx, widgets, out);
+    _validateScopes(unit, ctx, scopes, out);
+    _validateNodes(project, unit, ctx, out);
+    _validateEdges(unit, ctx, out);
+    _detectCycles(unit, out);
   }
 
   /// Rules specific to the structural directives (ADR-009).
   void _validateControlFlow(
     Project project,
-    Page page,
+    WidgetUnit page,
     NodeContext ctx,
+    WidgetLookup widgets,
     List<Diagnostic> out,
   ) {
     final parents = <String, WidgetNode>{};
@@ -176,7 +276,7 @@ class Validator {
         // A repeat expands to a collection-`for`, which only exists inside a
         // list. Anywhere else there is no syntax for "zero or many widgets".
         final parentSchema =
-            parent == null ? null : WidgetRegistry.lookup(parent.type);
+            parent == null ? null : widgets.lookup(parent.type);
         if (parentSchema == null ||
             parentSchema.childArity != ChildArity.many) {
           out.add(Diagnostic.error(
@@ -200,7 +300,7 @@ class Validator {
   /// distinguishable — that is, whenever they are models.
   void _validateItemKey(
     Project project,
-    Page page,
+    WidgetUnit page,
     NodeContext ctx,
     WidgetNode widget,
     List<Diagnostic> out,
@@ -254,7 +354,7 @@ class Validator {
 
   /// Enforces that `item` is only readable inside its own template.
   void _validateScopes(
-    Page page,
+    WidgetUnit page,
     NodeContext ctx,
     ScopeMap scopes,
     List<Diagnostic> out,
@@ -323,7 +423,7 @@ class Validator {
     return chain;
   }
 
-  void _validateIds(Page page, List<Diagnostic> out) {
+  void _validateIds(WidgetUnit page, List<Diagnostic> out) {
     final widgetIds = <String>{};
     for (final widget in page.hierarchy.descendantsAndSelf) {
       if (!widgetIds.add(widget.id)) {
@@ -349,12 +449,13 @@ class Validator {
   }
 
   void _validateHierarchy(
-    Page page,
+    WidgetUnit page,
     WidgetNode widget,
     String? parentType,
+    WidgetLookup widgets,
     List<Diagnostic> out,
   ) {
-    final schema = WidgetRegistry.lookup(widget.type);
+    final schema = widgets.lookup(widget.type);
     if (schema == null) {
       out.add(Diagnostic.error(
         code: 'unknown_widget',
@@ -435,22 +536,22 @@ class Validator {
     for (final prop in widget.props.values) {
       switch (prop) {
         case WidgetProp(:final widget):
-          _validateHierarchy(page, widget, null, out);
-        case WidgetListProp(:final widgets):
-          for (final w in widgets) {
-            _validateHierarchy(page, w, null, out);
+          _validateHierarchy(page, widget, null, widgets, out);
+        case WidgetListProp(widgets: final nested):
+          for (final w in nested) {
+            _validateHierarchy(page, w, null, widgets, out);
           }
         default:
           break;
       }
     }
     for (final child in widget.children) {
-      _validateHierarchy(page, child, widget.type, out);
+      _validateHierarchy(page, child, widget.type, widgets, out);
     }
   }
 
   void _checkPropShape(
-    Page page,
+    WidgetUnit page,
     WidgetNode widget,
     ParamSchema param,
     PropValue prop,
@@ -496,12 +597,13 @@ class Validator {
   /// Checks `$bind` and `$event` props against the graph.
   void _validateBindingsAndEvents(
     Project project,
-    Page page,
+    WidgetUnit page,
     NodeContext ctx,
+    WidgetLookup widgets,
     List<Diagnostic> out,
   ) {
     for (final widget in page.hierarchy.descendantsAndSelf) {
-      final schema = WidgetRegistry.lookup(widget.type);
+      final schema = widgets.lookup(widget.type);
       if (schema == null) continue;
       for (final entry in widget.props.entries) {
         final param = schema.param(entry.key);
@@ -570,7 +672,7 @@ class Validator {
 
   void _validateNodes(
     Project project,
-    Page page,
+    WidgetUnit page,
     NodeContext ctx,
     List<Diagnostic> out,
   ) {
@@ -634,6 +736,67 @@ class Validator {
         }
       }
 
+      if (node.type == 'Navigate') {
+        final route = node.get<String>('route');
+        if (route == null) {
+          out.add(Diagnostic.error(
+            code: 'missing_config',
+            message: 'Navigate needs a "route".',
+            pageId: page.id,
+            nodeId: node.id,
+          ));
+        } else if (ctx.pageForRoute(route) == null) {
+          out.add(Diagnostic.error(
+            code: 'unknown_route',
+            message: 'No page is registered at "$route". '
+                'Known routes: ${project.pages.map((p) => p.route).join(', ')}.',
+            pageId: page.id,
+            nodeId: node.id,
+          ));
+        }
+      }
+
+      if (node.type == 'PageParam') {
+        final name = node.get<String>('name');
+        if (name == null || page.parameter(name) == null) {
+          out.add(Diagnostic.error(
+            code: 'unknown_page_param',
+            message: 'This page has no parameter "${name ?? '<unset>'}". '
+                'Declared: ${page.parameters.isEmpty ? 'none' : page.parameters.map((p) => p.name).join(', ')}.',
+            pageId: page.id,
+            nodeId: node.id,
+          ));
+        }
+      }
+
+      if (node.type == 'DartCode' || node.type == 'Computed') {
+        final imports = node.config['imports'];
+        if (imports != null && imports is! List) {
+          out.add(Diagnostic.error(
+            code: 'bad_imports',
+            message: '"imports" must be a list of paths relative to lib/, '
+                'for example ["custom/text_utils.dart"].',
+            pageId: page.id,
+            nodeId: node.id,
+          ));
+        } else if (imports is List) {
+          for (final entry in imports) {
+            if (entry is! String ||
+                entry.isEmpty ||
+                entry.startsWith('/') ||
+                entry.contains('..')) {
+              out.add(Diagnostic.error(
+                code: 'bad_import_path',
+                message: 'Import "$entry" must be a path inside the generated '
+                    'project\'s lib/, such as "custom/text_utils.dart".',
+                pageId: page.id,
+                nodeId: node.id,
+              ));
+            }
+          }
+        }
+      }
+
       if (node.type == 'Event') {
         final widgetId = node.get<String>('widget');
         final eventName = node.get<String>('event');
@@ -679,7 +842,7 @@ class Validator {
     }
   }
 
-  void _validateEdges(Page page, NodeContext ctx, List<Diagnostic> out) {
+  void _validateEdges(WidgetUnit page, NodeContext ctx, List<Diagnostic> out) {
     final seenTargets = <PinRef, PinRef>{};
 
     for (final edge in page.graph.edges) {
@@ -735,7 +898,7 @@ class Validator {
 
   /// Depth-first cycle detection over data edges only. Event edges are
   /// imperative and may legitimately loop back to the signal they read.
-  void _detectCycles(Page page, List<Diagnostic> out) {
+  void _detectCycles(WidgetUnit page, List<Diagnostic> out) {
     final dependencies = <String, Set<String>>{};
     for (final edge in page.graph.edges) {
       final from = page.graph.node(edge.from.nodeId);
@@ -743,7 +906,7 @@ class Validator {
       if (from == null || to == null) continue;
       final toSchema = NodeRegistry.forNode(to);
       if (toSchema == null) continue;
-      final ctx = NodeContext(graph: page.graph, page: page);
+      final ctx = NodeContext(graph: page.graph, unit: page);
       final pin = toSchema.input(to, ctx, edge.to.pin);
       if (pin == null || pin.kind != PinKind.data) continue;
       dependencies.putIfAbsent(to.id, () => {}).add(from.id);

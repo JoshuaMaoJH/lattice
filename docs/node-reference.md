@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | `Const` | — | ● `value`: String | `dartType`, `value` | A literal value. |
 | `Format` | ● `args…`: dynamic | ● `out`: String | `template` | Interpolates arguments into a template, e.g. "Count: {0}". |
-| `Computed` | — | ● `out`: dynamic | `dartType`, `expr`, `inputs` | A pure Dart expression over named inputs. |
+| `Computed` | — | ● `out`: dynamic | `dartType`, `expr`, `inputs`, `imports` | A pure Dart expression over named inputs. |
 | `Add` | ● `a*`: int<br>● `b*`: int | ● `out`: int | `dartType` | a + b |
 | `Subtract` | ● `a*`: int<br>● `b*`: int | ● `out`: int | `dartType` | a - b |
 | `Multiply` | ● `a*`: int<br>● `b*`: int | ● `out`: int | `dartType` | a * b |
@@ -47,6 +47,12 @@
 | `MapGet` | ● `map*`: Map<String, dynamic><br>● `key*`: String | ● `value`: dynamic? | `keyType`, `valueType` | map[key]. The workhorse for per-item UI state keyed by id. |
 | `MapPut` | ● `map*`: Map<String, dynamic><br>● `key*`: String<br>● `value*`: dynamic | ● `out`: Map<String, dynamic> | `keyType`, `valueType` | A new map with one key set. |
 
+### 界面
+
+| 节点 | 输入 | 输出 | 配置 | 说明 |
+|---|---|---|---|---|
+| `PageParam` | — | ● `value`: dynamic | `name` | A parameter of the page or prefab this graph belongs to (R12, R9). |
+
 ### 事件
 
 | 节点 | 输入 | 输出 | 配置 | 说明 |
@@ -60,7 +66,8 @@
 | `SetSignal` | ▷ `exec`: Event<br>● `value*`: dynamic | ▷ `next`: Event | `signal` | Writes a value into a Signal. |
 | `UpdateSignal` | ▷ `exec`: Event | ▷ `next`: Event | `signal`, `fn` | Applies a pure function to a Signal's current value. |
 | `ToggleSignal` | ▷ `exec`: Event | ▷ `next`: Event | `signal` | Inverts a bool Signal. |
-| `Navigate` | ▷ `exec`: Event | ▷ `next`: Event | `route`, `replace` | Pushes or replaces a route. |
+| `Navigate` | ▷ `exec`: Event | ▷ `next`: Event | `route`, `replace` | Pushes or replaces a route. One input pin appears per parameter the target page declares. |
+| `HttpRequest` | ▷ `exec`: Event<br>● `url*`: String | ▷ `next`: Event | `method`, `signal`, `loadingSignal`, `errorSignal`, `decode` | Fetches a URL and decodes the body into a Signal. The handler it sits in becomes async (R13). |
 | `ShowSnackBar` | ▷ `exec`: Event<br>● `message*`: String | ▷ `next`: Event | — | Shows a snack bar on the current Scaffold. |
 | `Print` | ▷ `exec`: Event<br>● `message*`: dynamic | ▷ `next`: Event | — | debugPrint, for tracing a graph. |
 
@@ -74,7 +81,7 @@
 
 | 节点 | 输入 | 输出 | 配置 | 说明 |
 |---|---|---|---|---|
-| `DartCode` | — | ● `out`: dynamic | `inputs`, `dartType`, `body`, `name` | A hand-written pure function body (§7.8). |
+| `DartCode` | — | ● `out`: dynamic | `inputs`, `dartType`, `body`, `name`, `imports` | A hand-written pure function body (§7.8). "imports" reaches your own files under lib/custom/, which codegen never overwrites. |
 
 ### 组织
 
@@ -127,7 +134,7 @@
 | `OutlinedButton` | 1 → `child` | ▷ `onPressed*`: () | A button with an outline. |
 | `IconButton` | — | ▷ `onPressed*`: ()<br>◻ `icon*`: Widget<br>⚡ `tooltip`: String? | A tappable icon. |
 | `FloatingActionButton` | 1 → `child` | ▷ `onPressed*`: ()<br>⚡ `tooltip`: String? | The primary action of a page. |
-| `TextField` | — | ▷ `onChanged`: (String)<br>▷ `onSubmitted`: (String)<br>⚡ `hintText`: String?<br>⚡ `labelText`: String?<br>⚡ `obscureText`: bool = `false`<br>⚡ `keyboardType`: TextInputType? | A single-line text input. |
+| `TextField` | — | ⚡ `text`: String<br>▷ `onChanged`: (String)<br>▷ `onSubmitted`: (String)<br>⚡ `hintText`: String?<br>⚡ `labelText`: String?<br>⚡ `obscureText`: bool = `false`<br>⚡ `keyboardType`: TextInputType? | A single-line text input. |
 | `Checkbox` | — | ⚡ `value*`: bool<br>▷ `onChanged*`: (bool?) | A binary toggle box. |
 | `Switch` | — | ⚡ `value*`: bool<br>▷ `onChanged*`: (bool) | A binary on/off switch. |
 | `Slider` | — | ⚡ `value*`: double<br>▷ `onChanged*`: (double)<br>⚡ `min`: double = `0.0`<br>⚡ `max`: double = `1.0` | A continuous value picker. |

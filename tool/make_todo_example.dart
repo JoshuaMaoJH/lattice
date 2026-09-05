@@ -22,7 +22,8 @@ Future<void> main() async {
         'defaults': {'done': false},
       }, 'todo'),
     ],
-    pages: [_home()],
+    pages: [_home(), _detail()],
+    prefabs: [_statCard()],
   );
 
   await ProjectIo.save(project, 'examples/todo');
@@ -53,6 +54,199 @@ Page _home() => Page(
         'n_toggled': CanvasPos(320, 540),
         'n_replaced': CanvasPos(560, 540),
         'n_removed': CanvasPos(560, 640),
+      },
+    );
+
+/// A reusable stat tile, placed three times on the home page (R9).
+///
+/// Its three parameters become constructor arguments; because it holds no
+/// state of its own it compiles to a `StatelessWidget` with a const
+/// constructor, so each placement is free.
+Prefab _statCard() => Prefab(
+      id: 'prefab_stat_card',
+      name: 'StatCard',
+      parameters: [
+        const FieldDef(name: 'label', type: PrimitiveType.string),
+        const FieldDef(name: 'value', type: PrimitiveType.string),
+        FieldDef(
+          name: 'accent',
+          type: NullableType(PrimitiveType.color),
+        ),
+      ],
+      hierarchy: WidgetNode(
+        id: 's_root',
+        type: 'Container',
+        props: {
+          'padding': const LiteralProp({'horizontal': 20, 'vertical': 12}),
+          'color': const BindProp(PinRef('s_accent', 'value')),
+        },
+        children: [
+          WidgetNode(
+            id: 's_col',
+            type: 'Column',
+            props: {'mainAxisSize': const LiteralProp('min')},
+            children: [
+              WidgetNode(
+                id: 's_value',
+                type: 'Text',
+                props: {
+                  'data': const BindProp(PinRef('s_valueParam', 'value')),
+                  'style': const LiteralProp({
+                    'fontSize': 22,
+                    'fontWeight': 'bold',
+                  }),
+                },
+              ),
+              WidgetNode(
+                id: 's_label',
+                type: 'Text',
+                props: {
+                  'data': const BindProp(PinRef('s_labelParam', 'value')),
+                  'style': const LiteralProp({'fontSize': 12}),
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      graph: Graph(
+        nodes: [
+          GraphNode(
+            id: 's_labelParam',
+            type: 'PageParam',
+            config: const {'name': 'label'},
+          ),
+          GraphNode(
+            id: 's_valueParam',
+            type: 'PageParam',
+            config: const {'name': 'value'},
+          ),
+          GraphNode(
+            id: 's_accent',
+            type: 'PageParam',
+            config: const {'name': 'accent'},
+          ),
+        ],
+      ),
+      layout: const {
+        's_labelParam': CanvasPos(80, 60),
+        's_valueParam': CanvasPos(80, 140),
+        's_accent': CanvasPos(80, 220),
+      },
+    );
+
+/// A second route, reached by tapping a row. Its two values arrive as
+/// navigation arguments and become constructor parameters (R12).
+Page _detail() => Page(
+      id: 'page_detail',
+      name: 'Detail',
+      route: '/detail',
+      parameters: [
+        const FieldDef(name: 'title', type: PrimitiveType.string),
+        const FieldDef(
+            name: 'done', type: PrimitiveType.bool_, defaultValue: false),
+      ],
+      hierarchy: WidgetNode(
+        id: 'd_root',
+        type: 'Scaffold',
+        props: {
+          'appBar': WidgetProp(
+            WidgetNode(
+              id: 'd_appbar',
+              type: 'AppBar',
+              props: {
+                'title': WidgetProp(
+                  WidgetNode(
+                    id: 'd_appbar_title',
+                    type: 'Text',
+                    props: {'data': const LiteralProp('Detail')},
+                  ),
+                ),
+              },
+            ),
+          ),
+        },
+        children: [
+          WidgetNode(
+            id: 'd_pad',
+            type: 'Padding',
+            props: {'padding': const LiteralProp(24)},
+            children: [
+              WidgetNode(
+                id: 'd_col',
+                type: 'Column',
+                props: {
+                  'crossAxisAlignment': const LiteralProp('start'),
+                  'mainAxisSize': const LiteralProp('min'),
+                },
+                children: [
+                  WidgetNode(
+                    id: 'd_title',
+                    type: 'Text',
+                    props: {
+                      'data': const BindProp(PinRef('p_title', 'value')),
+                      'style': const LiteralProp({
+                        'fontSize': 24,
+                        'fontWeight': 'bold',
+                      }),
+                    },
+                  ),
+                  WidgetNode(
+                    id: 'd_gap',
+                    type: 'SizedBox',
+                    props: {'height': const LiteralProp(12)},
+                  ),
+                  WidgetNode(
+                    id: 'd_status',
+                    type: 'Text',
+                    props: {
+                      'data': const BindProp(PinRef('n_status', 'out')),
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+      graph: Graph(
+        nodes: [
+          GraphNode(
+            id: 'p_title',
+            type: 'PageParam',
+            config: const {'name': 'title'},
+          ),
+          GraphNode(
+            id: 'p_done',
+            type: 'PageParam',
+            config: const {'name': 'done'},
+          ),
+          GraphNode(
+            id: 'n_doneText',
+            type: 'Const',
+            config: const {'dartType': 'String', 'value': 'Done'},
+          ),
+          GraphNode(
+            id: 'n_openText',
+            type: 'Const',
+            config: const {'dartType': 'String', 'value': 'Still to do'},
+          ),
+          GraphNode(
+            id: 'n_status',
+            type: 'Conditional',
+            config: const {'dartType': 'String', 'name': 'status'},
+          ),
+        ],
+        edges: const [
+          Edge(PinRef('p_done', 'value'), PinRef('n_status', 'condition')),
+          Edge(PinRef('n_doneText', 'value'), PinRef('n_status', 'ifTrue')),
+          Edge(PinRef('n_openText', 'value'), PinRef('n_status', 'ifFalse')),
+        ],
+      ),
+      layout: const {
+        'p_title': CanvasPos(80, 60),
+        'p_done': CanvasPos(80, 160),
+        'n_status': CanvasPos(360, 160),
       },
     );
 
@@ -100,6 +294,7 @@ WidgetNode _hierarchy() => WidgetNode(
                           type: 'TextField',
                           props: {
                             'hintText': const LiteralProp('What needs doing?'),
+                            'text': const BindProp(PinRef('n_draft', 'value')),
                             'onChanged': const EventProp('ev_input'),
                           },
                         ),
@@ -123,6 +318,44 @@ WidgetNode _hierarchy() => WidgetNode(
                       ],
                     ),
                   ],
+                ),
+              ],
+            ),
+
+            // --- three placements of the same prefab (R9) ---------------
+            WidgetNode(
+              id: 'w_stats',
+              type: 'Row',
+              props: {
+                'mainAxisAlignment': const LiteralProp('spaceEvenly'),
+              },
+              children: [
+                WidgetNode(
+                  id: 'w_stat_total',
+                  type: 'StatCard',
+                  props: {
+                    'label': const LiteralProp('Total'),
+                    'value': const BindProp(PinRef('n_totalText', 'out')),
+                    'accent': const LiteralProp('#E8DEF8'),
+                  },
+                ),
+                WidgetNode(
+                  id: 'w_stat_done',
+                  type: 'StatCard',
+                  props: {
+                    'label': const LiteralProp('Done'),
+                    'value': const BindProp(PinRef('n_doneText', 'out')),
+                    'accent': const LiteralProp('#D7F0DB'),
+                  },
+                ),
+                WidgetNode(
+                  id: 'w_stat_left',
+                  type: 'StatCard',
+                  props: {
+                    'label': const LiteralProp('Left'),
+                    'value': const BindProp(PinRef('n_leftText', 'out')),
+                    'accent': const LiteralProp('#FFE0E0'),
+                  },
                 ),
               ],
             ),
@@ -173,6 +406,7 @@ WidgetNode _hierarchy() => WidgetNode(
                           id: 'w_tile',
                           type: 'ListTile',
                           props: {
+                            'onTap': const EventProp('ev_tap'),
                             'leading': WidgetProp(
                               WidgetNode(
                                 id: 'w_check',
@@ -251,6 +485,42 @@ Graph _graph() => Graph(
           config: const {'dartType': 'String', 'value': ''},
         ),
         GraphNode(
+          id: 'n_total',
+          type: 'ListLength',
+          config: const {'elementType': 'Todo', 'name': 'total'},
+        ),
+        GraphNode(
+          id: 'n_done',
+          type: 'DartCode',
+          config: const {
+            'name': 'doneCount',
+            'dartType': 'int',
+            'inputs': {'todos': 'List<Todo>'},
+            'imports': ['custom/labels.dart'],
+            'body': 'return countDone(todos);',
+          },
+        ),
+        GraphNode(
+          id: 'n_left',
+          type: 'Subtract',
+          config: const {'dartType': 'int', 'name': 'left'},
+        ),
+        GraphNode(
+          id: 'n_totalText',
+          type: 'Format',
+          config: const {'template': '{0}'},
+        ),
+        GraphNode(
+          id: 'n_doneText',
+          type: 'Format',
+          config: const {'template': '{0}'},
+        ),
+        GraphNode(
+          id: 'n_leftText',
+          type: 'Format',
+          config: const {'template': '{0}'},
+        ),
+        GraphNode(
           id: 'n_isEmpty',
           type: 'ListIsEmpty',
           config: const {'elementType': 'Todo', 'name': 'isEmpty'},
@@ -277,11 +547,23 @@ Graph _graph() => Graph(
           type: 'ForEachItem',
           config: const {'forEach': 'w_each'},
         ),
+        // Reaches into lib/custom/, which codegen never overwrites (§7.8).
         GraphNode(
           id: 'n_itemTitle',
-          type: 'Computed',
+          type: 'DartCode',
           config: const {
             'name': 'titleOf',
+            'dartType': 'String',
+            'inputs': {'item': 'Todo'},
+            'imports': ['custom/labels.dart'],
+            'body': 'return decorate(item.title, done: item.done);',
+          },
+        ),
+        GraphNode(
+          id: 'n_rawTitle',
+          type: 'Computed',
+          config: const {
+            'name': 'rawTitleOf',
             'dartType': 'String',
             'inputs': {'item': 'Todo'},
             'expr': 'item.title',
@@ -360,6 +642,16 @@ Graph _graph() => Graph(
           config: const {'signal': 'n_todos'},
         ),
         GraphNode(
+          id: 'ev_tap',
+          type: 'Event',
+          config: const {'widget': 'w_tile', 'event': 'onTap'},
+        ),
+        GraphNode(
+          id: 'a_open',
+          type: 'Navigate',
+          config: const {'route': '/detail'},
+        ),
+        GraphNode(
           id: 'ev_del',
           type: 'Event',
           config: const {'widget': 'w_del', 'event': 'onPressed'},
@@ -371,6 +663,15 @@ Graph _graph() => Graph(
         ),
       ],
       edges: const [
+        // counters feeding the three stat cards
+        Edge(PinRef('n_todos', 'value'), PinRef('n_total', 'list')),
+        Edge(PinRef('n_todos', 'value'), PinRef('n_done', 'todos')),
+        Edge(PinRef('n_total', 'out'), PinRef('n_left', 'a')),
+        Edge(PinRef('n_done', 'out'), PinRef('n_left', 'b')),
+        Edge(PinRef('n_total', 'out'), PinRef('n_totalText', 'args', index: 0)),
+        Edge(PinRef('n_done', 'out'), PinRef('n_doneText', 'args', index: 0)),
+        Edge(PinRef('n_left', 'out'), PinRef('n_leftText', 'args', index: 0)),
+
         // empty state
         Edge(PinRef('n_todos', 'value'), PinRef('n_isEmpty', 'list')),
 
@@ -388,6 +689,7 @@ Graph _graph() => Graph(
         Edge(PinRef('n_empty_string', 'value'), PinRef('a_clear', 'value')),
 
         // per-item reads
+        Edge(PinRef('n_item', 'item'), PinRef('n_rawTitle', 'item')),
         Edge(PinRef('n_item', 'item'), PinRef('n_itemTitle', 'item')),
         Edge(PinRef('n_item', 'item'), PinRef('n_itemDone', 'item')),
         Edge(PinRef('n_item', 'item'), PinRef('n_toggled', 'item')),
@@ -398,6 +700,11 @@ Graph _graph() => Graph(
         Edge(PinRef('n_toggled', 'out'), PinRef('n_replaced', 'item')),
         Edge(PinRef('ev_toggle', 'fire'), PinRef('a_toggle', 'exec')),
         Edge(PinRef('n_replaced', 'out'), PinRef('a_toggle', 'value')),
+
+        // open the detail route with this row's values
+        Edge(PinRef('ev_tap', 'fire'), PinRef('a_open', 'exec')),
+        Edge(PinRef('n_rawTitle', 'out'), PinRef('a_open', 'title')),
+        Edge(PinRef('n_itemDone', 'out'), PinRef('a_open', 'done')),
 
         // delete
         Edge(PinRef('n_todos', 'value'), PinRef('n_removed', 'list')),

@@ -1,0 +1,11 @@
+{
+  "name": "Forecast",
+  "fields": {
+    "latitude": "double",
+    "longitude": "double",
+    "currentWeather": "CurrentWeather"
+  },
+  "jsonKeys": {
+    "currentWeather": "current_weather"
+  }
+}

@@ -1,4 +1,5 @@
 import '../model/graph.dart';
+import '../model/data_model.dart';
 import '../types/lattice_type.dart';
 import 'node_schema.dart';
 import 'pin_schema.dart';
@@ -105,7 +106,7 @@ class NodeRegistry {
       type: 'Computed',
       category: NodeCategory.compute,
       summary: 'A pure Dart expression over named inputs.',
-      configKeys: const ['dartType', 'expr', 'inputs'],
+      configKeys: const ['dartType', 'expr', 'inputs', 'imports'],
       inputsFor: (node, ctx) {
         final declared = node.get<Map<String, Object?>>('inputs') ?? const {};
         return [
@@ -298,6 +299,19 @@ class NodeRegistry {
 
     // ---- control -----------------------------------------------------------
     NodeSchema(
+      type: 'PageParam',
+      category: NodeCategory.ui,
+      summary: 'A parameter of the page or prefab this graph belongs to '
+          '(R12, R9).',
+      configKeys: const ['name'],
+      inputsFor: (_, __) => const [],
+      outputsFor: (node, ctx) {
+        final name = node.get<String>('name');
+        final parameter = name == null ? null : ctx.unit?.parameter(name);
+        return [_out('value', parameter?.type ?? PrimitiveType.dynamic_)];
+      },
+    ),
+    NodeSchema(
       type: 'ForEachItem',
       category: NodeCategory.control,
       summary: 'The current item and index inside a ForEach template. '
@@ -366,9 +380,42 @@ class NodeRegistry {
     NodeSchema(
       type: 'Navigate',
       category: NodeCategory.action,
-      summary: 'Pushes or replaces a route.',
+      summary: 'Pushes or replaces a route. One input pin appears per '
+          'parameter the target page declares.',
       configKeys: const ['route', 'replace'],
-      inputsFor: (_, __) => const [_exec],
+      inputsFor: (node, ctx) {
+        final target = ctx.pageForRoute(node.get<String>('route'));
+        return [
+          _exec,
+          for (final parameter in target?.parameters ?? const <FieldDef>[])
+            _in(
+              parameter.name,
+              parameter.type,
+              req: parameter.defaultValue == null &&
+                  parameter.type is! NullableType,
+            ),
+        ];
+      },
+      outputsFor: (_, __) => const [_next],
+    ),
+    NodeSchema(
+      type: 'HttpRequest',
+      category: NodeCategory.action,
+      summary: 'Fetches a URL and decodes the body into a Signal. '
+          'The handler it sits in becomes async (R13).',
+      configKeys: const [
+        'method',
+        'signal',
+        'loadingSignal',
+        'errorSignal',
+        'decode',
+      ],
+      inputsFor: (node, ctx) => [
+        _exec,
+        _in('url', _string),
+        if ((node.get<String>('method') ?? 'GET').toUpperCase() != 'GET')
+          _in('body', _string, req: false),
+      ],
       outputsFor: (_, __) => const [_next],
     ),
     NodeSchema.fixed(
@@ -393,8 +440,10 @@ class NodeRegistry {
     NodeSchema(
       type: 'DartCode',
       category: NodeCategory.escape,
-      summary: 'A hand-written pure function body (§7.8).',
-      configKeys: const ['inputs', 'dartType', 'body', 'name'],
+      summary: 'A hand-written pure function body (§7.8). '
+          '"imports" reaches your own files under lib/custom/, which codegen '
+          'never overwrites.',
+      configKeys: const ['inputs', 'dartType', 'body', 'name', 'imports'],
       inputsFor: (node, ctx) {
         final declared = node.get<Map<String, Object?>>('inputs') ?? const {};
         return [

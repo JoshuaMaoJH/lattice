@@ -4,6 +4,7 @@ import 'commands/analyze_command.dart';
 import 'commands/build_command.dart';
 import 'commands/export_command.dart';
 import 'commands/new_command.dart';
+import 'commands/package_command.dart';
 import 'commands/run_command.dart';
 import 'commands/targets_command.dart';
 import 'console.dart';
@@ -20,6 +21,7 @@ class LatticeCommandRunner extends CommandRunner<int> {
     addCommand(NewCommand(output));
     addCommand(BuildCommand(output));
     addCommand(RunCommand(output));
+    addCommand(PackageCommand(output));
     addCommand(ExportCommand(output));
     addCommand(AnalyzeCommand(output));
     addCommand(TargetsCommand(output));

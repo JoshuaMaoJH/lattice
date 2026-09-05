@@ -49,7 +49,11 @@ class RunCommand extends LatticeCommand {
       console.diagnostics(result.errors);
       return 1;
     }
-    await const LatticeGenerator().write(result, output);
+    await const LatticeGenerator().write(
+      result,
+      output,
+      customSource: p.join(root, 'custom'),
+    );
     console.success('Generated ${result.files.length} file(s).');
 
     final device = argResults?['device'] as String?;

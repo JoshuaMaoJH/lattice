@@ -39,6 +39,31 @@ enum ParamKind {
   callback,
 }
 
+/// A parameter Flutter exposes through a controller object rather than as a
+/// plain value.
+///
+/// `TextField` is the canonical case: you cannot hand it a string and expect
+/// the field to follow, because the widget owns its own editing state. Codegen
+/// therefore allocates the controller, seeds it, keeps it in step with the
+/// signal, and disposes it — which is exactly the boilerplate a user came here
+/// to avoid writing.
+final class ControllerBinding {
+  const ControllerBinding({
+    required this.type,
+    required this.argument,
+    required this.property,
+  });
+
+  /// The controller class, e.g. `TextEditingController`.
+  final String type;
+
+  /// The constructor argument it is passed as, e.g. `controller`.
+  final String argument;
+
+  /// The controller property holding the value, e.g. `text`.
+  final String property;
+}
+
 /// One entry of a widget's parameter schema (§7.1). Drives the Inspector form,
 /// the widget's pins in the Graph, and the emitted constructor call.
 final class ParamSchema {
@@ -51,6 +76,7 @@ final class ParamSchema {
     this.bindable = true,
     this.positional = false,
     this.emitInto,
+    this.controller,
   });
 
   final String name;
@@ -80,6 +106,12 @@ final class ParamSchema {
   /// This keeps the Inspector flat (one field per thing the user cares about)
   /// without the emitter growing per-widget special cases.
   final String? emitInto;
+
+  /// Set when the value reaches the widget through a controller rather than
+  /// directly. A parameter bound this way does not make its widget reactive:
+  /// the controller pushes updates in, so rebuilding on every keystroke would
+  /// be both wasteful and cursor-destroying.
+  final ControllerBinding? controller;
 
   @override
   String toString() => '$name: ${type.dartName}';

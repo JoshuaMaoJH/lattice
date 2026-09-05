@@ -1,0 +1,141 @@
+{
+  "id": "page_detail",
+  "name": "Detail",
+  "route": "/detail",
+  "params": {
+    "title": "String",
+    "done": "bool"
+  },
+  "paramDefaults": {
+    "done": false
+  },
+  "hierarchy": {
+    "id": "d_root",
+    "type": "Scaffold",
+    "props": {
+      "appBar": {
+        "id": "d_appbar",
+        "type": "AppBar",
+        "props": {
+          "title": {
+            "id": "d_appbar_title",
+            "type": "Text",
+            "props": {
+              "data": "Detail"
+            }
+          }
+        }
+      }
+    },
+    "children": [
+      {
+        "id": "d_pad",
+        "type": "Padding",
+        "props": {
+          "padding": 24
+        },
+        "children": [
+          {
+            "id": "d_col",
+            "type": "Column",
+            "props": {
+              "crossAxisAlignment": "start",
+              "mainAxisSize": "min"
+            },
+            "children": [
+              {
+                "id": "d_title",
+                "type": "Text",
+                "props": {
+                  "data": {
+                    "$bind": "p_title.value"
+                  },
+                  "style": {
+                    "fontSize": 24,
+                    "fontWeight": "bold"
+                  }
+                }
+              },
+              {
+                "id": "d_gap",
+                "type": "SizedBox",
+                "props": {
+                  "height": 12
+                }
+              },
+              {
+                "id": "d_status",
+                "type": "Text",
+                "props": {
+                  "data": {
+                    "$bind": "n_status.out"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "p_title",
+        "name": "title",
+        "type": "PageParam"
+      },
+      {
+        "id": "p_done",
+        "name": "done",
+        "type": "PageParam"
+      },
+      {
+        "dartType": "String",
+        "id": "n_doneText",
+        "type": "Const",
+        "value": "Done"
+      },
+      {
+        "dartType": "String",
+        "id": "n_openText",
+        "type": "Const",
+        "value": "Still to do"
+      },
+      {
+        "dartType": "String",
+        "id": "n_status",
+        "name": "status",
+        "type": "Conditional"
+      }
+    ],
+    "edges": [
+      {
+        "from": "p_done.value",
+        "to": "n_status.condition"
+      },
+      {
+        "from": "n_doneText.value",
+        "to": "n_status.ifTrue"
+      },
+      {
+        "from": "n_openText.value",
+        "to": "n_status.ifFalse"
+      }
+    ]
+  },
+  "layout": {
+    "n_status": [
+      360.0,
+      160.0
+    ],
+    "p_done": [
+      80.0,
+      160.0
+    ],
+    "p_title": [
+      80.0,
+      60.0
+    ]
+  }
+}

@@ -7,4 +7,5 @@ library;
 export 'src/app_metadata.dart';
 export 'src/flutter_build.dart';
 export 'src/host.dart';
+export 'src/packager.dart';
 export 'src/platform_scaffolder.dart';

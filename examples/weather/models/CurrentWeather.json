@@ -1,0 +1,9 @@
+{
+  "name": "CurrentWeather",
+  "fields": {
+    "time": "String",
+    "temperature": "double",
+    "windspeed": "double",
+    "weathercode": "int"
+  }
+}

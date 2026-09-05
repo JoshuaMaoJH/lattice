@@ -3,6 +3,8 @@ import 'package:collection/collection.dart';
 import 'data_model.dart';
 import 'json_utils.dart';
 import 'page.dart';
+import 'prefab.dart';
+import 'widget_unit.dart';
 
 /// Which reactive primitives the generated code is built on.
 ///
@@ -155,13 +157,22 @@ final class Project {
     required this.config,
     List<Page>? pages,
     List<DataModelDef>? models,
+    List<Prefab>? prefabs,
   })  : pages = List.unmodifiable(pages ?? const []),
-        models = List.unmodifiable(models ?? const []);
+        models = List.unmodifiable(models ?? const []),
+        prefabs = List.unmodifiable(prefabs ?? const []);
 
   final String id;
   final ProjectConfig config;
   final List<Page> pages;
   final List<DataModelDef> models;
+
+  /// Reusable components (§5, R9). Each compiles to its own widget class and
+  /// becomes usable as a widget type anywhere in the project.
+  final List<Prefab> prefabs;
+
+  /// Every unit that compiles to a widget class.
+  List<WidgetUnit> get units => [...pages, ...prefabs];
 
   /// Reads the `project.json` manifest. [pages] and [models] live in their own
   /// files (§7.4) and are supplied by the loader.
@@ -169,6 +180,7 @@ final class Project {
     Map<String, Object?> json, {
     List<Page> pages = const [],
     List<DataModelDef> models = const [],
+    List<Prefab> prefabs = const [],
     String path = 'project',
   }) =>
       Project(
@@ -179,18 +191,24 @@ final class Project {
         ),
         pages: pages,
         models: models,
+        prefabs: prefabs,
       );
 
   Map<String, Object?> toManifestJson() => {
         'config': config.toJson(),
         'id': id,
         'pages': [for (final p in pages) p.id],
+        'prefabs': [for (final p in prefabs) p.id],
       };
 
   Page? page(String id) => pages.firstWhereOrNull((p) => p.id == id);
 
   DataModelDef? model(String name) =>
       models.firstWhereOrNull((m) => m.name == name);
+
+  /// The prefab a Hierarchy node's `type` refers to, if any.
+  Prefab? prefab(String type) =>
+      prefabs.firstWhereOrNull((p) => p.name == type);
 
   /// The page the app routes to first: the one flagged `isHome`, else the
   /// first declared.
@@ -201,12 +219,14 @@ final class Project {
     ProjectConfig? config,
     List<Page>? pages,
     List<DataModelDef>? models,
+    List<Prefab>? prefabs,
   }) =>
       Project(
         id: id,
         config: config ?? this.config,
         pages: pages ?? this.pages,
         models: models ?? this.models,
+        prefabs: prefabs ?? this.prefabs,
       );
 
   /// Replaces one page in place, keeping declaration order.
@@ -223,7 +243,8 @@ final class Project {
       other.id == id &&
       other.config == config &&
       const ListEquality<Page>().equals(other.pages, pages) &&
-      const ListEquality<DataModelDef>().equals(other.models, models);
+      const ListEquality<DataModelDef>().equals(other.models, models) &&
+      const ListEquality<Prefab>().equals(other.prefabs, prefabs);
 
   @override
   int get hashCode => Object.hash(id, config, pages.length, models.length);

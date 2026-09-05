@@ -65,7 +65,11 @@ class ExportCommand extends LatticeCommand {
       return 1;
     }
 
-    await const LatticeGenerator().write(result, output);
+    await const LatticeGenerator().write(
+      result,
+      output,
+      customSource: p.join(root, 'custom'),
+    );
 
     if (usesLocalRuntime) {
       final source = ProjectLocator.findRuntimePackage(root);

@@ -1,6 +1,7 @@
 import '../model/graph.dart';
 import '../model/hierarchy.dart';
 import '../model/page.dart';
+import '../model/widget_unit.dart';
 import '../model/pin_ref.dart';
 import '../model/project.dart';
 import '../types/lattice_type.dart';
@@ -10,7 +11,7 @@ import '../types/type_parser.dart';
 // this is well defined.
 import 'node_registry.dart';
 import 'pin_schema.dart';
-import 'widget_registry.dart';
+import 'widget_lookup.dart';
 import 'widget_schema.dart';
 
 enum NodeCategory {
@@ -41,11 +42,17 @@ enum NodeCategory {
 
 /// Everything a pin resolver may need to look beyond the node itself.
 final class NodeContext {
-  NodeContext({required this.graph, this.page, this.project});
+  NodeContext({required this.graph, this.unit, this.project});
 
   final Graph graph;
-  final Page? page;
+
+  /// The page or prefab being compiled.
+  final WidgetUnit? unit;
+
   final Project? project;
+
+  /// Resolves widget types against the whitelist *and* the project's prefabs.
+  late final WidgetLookup widgets = WidgetLookup(project);
 
   /// Guards the `ForEach` -> `ForEachItem` -> `ForEach` loop that a nested
   /// repeat creates while types are being resolved.
@@ -62,9 +69,9 @@ final class NodeContext {
 
   /// The whitelisted schema behind a Hierarchy node id.
   WidgetSchema? widgetSchema(String? widgetId) {
-    if (widgetId == null || page == null) return null;
-    for (final w in page!.hierarchy.descendantsAndSelf) {
-      if (w.id == widgetId) return WidgetRegistry.lookup(w.type);
+    if (widgetId == null || unit == null) return null;
+    for (final w in unit!.hierarchy.descendantsAndSelf) {
+      if (w.id == widgetId) return widgets.lookup(w.type);
     }
     return null;
   }
@@ -82,8 +89,8 @@ final class NodeContext {
 
   /// The Hierarchy node with this id, searching nested widget props too.
   WidgetNode? widgetNode(String? widgetId) {
-    if (widgetId == null || page == null) return null;
-    for (final widget in page!.hierarchy.descendantsAndSelf) {
+    if (widgetId == null || unit == null) return null;
+    for (final widget in unit!.hierarchy.descendantsAndSelf) {
       if (widget.id == widgetId) return widget;
     }
     return null;
@@ -114,6 +121,15 @@ final class NodeContext {
     } finally {
       _resolving.remove(forEachWidgetId);
     }
+  }
+
+  /// The page a `Navigate` node targets.
+  Page? pageForRoute(String? route) {
+    if (route == null || project == null) return null;
+    for (final candidate in project!.pages) {
+      if (candidate.route == route) return candidate;
+    }
+    return null;
   }
 
   /// Resolves a type spelling in the context of this project's models.

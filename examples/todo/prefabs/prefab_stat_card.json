@@ -1,0 +1,91 @@
+{
+  "id": "prefab_stat_card",
+  "name": "StatCard",
+  "params": {
+    "label": "String",
+    "value": "String",
+    "accent": "Color?"
+  },
+  "hierarchy": {
+    "id": "s_root",
+    "type": "Container",
+    "props": {
+      "color": {
+        "$bind": "s_accent.value"
+      },
+      "padding": {
+        "horizontal": 20,
+        "vertical": 12
+      }
+    },
+    "children": [
+      {
+        "id": "s_col",
+        "type": "Column",
+        "props": {
+          "mainAxisSize": "min"
+        },
+        "children": [
+          {
+            "id": "s_value",
+            "type": "Text",
+            "props": {
+              "data": {
+                "$bind": "s_valueParam.value"
+              },
+              "style": {
+                "fontSize": 22,
+                "fontWeight": "bold"
+              }
+            }
+          },
+          {
+            "id": "s_label",
+            "type": "Text",
+            "props": {
+              "data": {
+                "$bind": "s_labelParam.value"
+              },
+              "style": {
+                "fontSize": 12
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "s_labelParam",
+        "name": "label",
+        "type": "PageParam"
+      },
+      {
+        "id": "s_valueParam",
+        "name": "value",
+        "type": "PageParam"
+      },
+      {
+        "id": "s_accent",
+        "name": "accent",
+        "type": "PageParam"
+      }
+    ]
+  },
+  "layout": {
+    "s_accent": [
+      80.0,
+      220.0
+    ],
+    "s_labelParam": [
+      80.0,
+      60.0
+    ],
+    "s_valueParam": [
+      80.0,
+      140.0
+    ]
+  }
+}

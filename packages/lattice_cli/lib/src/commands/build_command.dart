@@ -80,7 +80,11 @@ class BuildCommand extends LatticeCommand {
       return 1;
     }
     console.diagnostics(result.validation.warnings);
-    final written = await const LatticeGenerator().write(result, output);
+    final written = await const LatticeGenerator().write(
+      result,
+      output,
+      customSource: p.join(root, 'custom'),
+    );
     console.success(
       '${result.files.length} file(s) generated, ${written.length} changed '
       '-> ${p.relative(output)}',

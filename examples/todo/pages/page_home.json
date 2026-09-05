@@ -48,6 +48,9 @@
                           "hintText": "What needs doing?",
                           "onChanged": {
                             "$event": "ev_input"
+                          },
+                          "text": {
+                            "$bind": "n_draft.value"
                           }
                         }
                       }
@@ -79,6 +82,48 @@
                     ]
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "id": "w_stats",
+            "type": "Row",
+            "props": {
+              "mainAxisAlignment": "spaceEvenly"
+            },
+            "children": [
+              {
+                "id": "w_stat_total",
+                "type": "StatCard",
+                "props": {
+                  "accent": "#E8DEF8",
+                  "label": "Total",
+                  "value": {
+                    "$bind": "n_totalText.out"
+                  }
+                }
+              },
+              {
+                "id": "w_stat_done",
+                "type": "StatCard",
+                "props": {
+                  "accent": "#D7F0DB",
+                  "label": "Done",
+                  "value": {
+                    "$bind": "n_doneText.out"
+                  }
+                }
+              },
+              {
+                "id": "w_stat_left",
+                "type": "StatCard",
+                "props": {
+                  "accent": "#FFE0E0",
+                  "label": "Left",
+                  "value": {
+                    "$bind": "n_leftText.out"
+                  }
+                }
               }
             ]
           },
@@ -142,6 +187,9 @@
                                 "$bind": "n_itemDone.out"
                               }
                             }
+                          },
+                          "onTap": {
+                            "$event": "ev_tap"
                           },
                           "title": {
                             "id": "w_tile_title",
@@ -210,6 +258,46 @@
       },
       {
         "elementType": "Todo",
+        "id": "n_total",
+        "name": "total",
+        "type": "ListLength"
+      },
+      {
+        "body": "return countDone(todos);",
+        "dartType": "int",
+        "id": "n_done",
+        "imports": [
+          "custom/labels.dart"
+        ],
+        "inputs": {
+          "todos": "List<Todo>"
+        },
+        "name": "doneCount",
+        "type": "DartCode"
+      },
+      {
+        "dartType": "int",
+        "id": "n_left",
+        "name": "left",
+        "type": "Subtract"
+      },
+      {
+        "id": "n_totalText",
+        "template": "{0}",
+        "type": "Format"
+      },
+      {
+        "id": "n_doneText",
+        "template": "{0}",
+        "type": "Format"
+      },
+      {
+        "id": "n_leftText",
+        "template": "{0}",
+        "type": "Format"
+      },
+      {
+        "elementType": "Todo",
         "id": "n_isEmpty",
         "name": "isEmpty",
         "type": "ListIsEmpty"
@@ -236,13 +324,26 @@
         "type": "ForEachItem"
       },
       {
+        "body": "return decorate(item.title, done: item.done);",
         "dartType": "String",
-        "expr": "item.title",
         "id": "n_itemTitle",
+        "imports": [
+          "custom/labels.dart"
+        ],
         "inputs": {
           "item": "Todo"
         },
         "name": "titleOf",
+        "type": "DartCode"
+      },
+      {
+        "dartType": "String",
+        "expr": "item.title",
+        "id": "n_rawTitle",
+        "inputs": {
+          "item": "Todo"
+        },
+        "name": "rawTitleOf",
         "type": "Computed"
       },
       {
@@ -320,6 +421,17 @@
         "type": "SetSignal"
       },
       {
+        "event": "onTap",
+        "id": "ev_tap",
+        "type": "Event",
+        "widget": "w_tile"
+      },
+      {
+        "id": "a_open",
+        "route": "/detail",
+        "type": "Navigate"
+      },
+      {
         "event": "onPressed",
         "id": "ev_del",
         "type": "Event",
@@ -332,6 +444,34 @@
       }
     ],
     "edges": [
+      {
+        "from": "n_todos.value",
+        "to": "n_total.list"
+      },
+      {
+        "from": "n_todos.value",
+        "to": "n_done.todos"
+      },
+      {
+        "from": "n_total.out",
+        "to": "n_left.a"
+      },
+      {
+        "from": "n_done.out",
+        "to": "n_left.b"
+      },
+      {
+        "from": "n_total.out",
+        "to": "n_totalText.args[0]"
+      },
+      {
+        "from": "n_done.out",
+        "to": "n_doneText.args[0]"
+      },
+      {
+        "from": "n_left.out",
+        "to": "n_leftText.args[0]"
+      },
       {
         "from": "n_todos.value",
         "to": "n_isEmpty.list"
@@ -382,6 +522,10 @@
       },
       {
         "from": "n_item.item",
+        "to": "n_rawTitle.item"
+      },
+      {
+        "from": "n_item.item",
         "to": "n_itemTitle.item"
       },
       {
@@ -411,6 +555,18 @@
       {
         "from": "n_replaced.out",
         "to": "a_toggle.value"
+      },
+      {
+        "from": "ev_tap.fire",
+        "to": "a_open.exec"
+      },
+      {
+        "from": "n_rawTitle.out",
+        "to": "a_open.title"
+      },
+      {
+        "from": "n_itemDone.out",
+        "to": "a_open.done"
       },
       {
         "from": "n_todos.value",

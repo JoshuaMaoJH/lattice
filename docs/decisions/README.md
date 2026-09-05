@@ -14,3 +14,4 @@
 | [007](007-const-decided-at-codegen.md) | const 由 codegen 结构化决定，而非交给 lint | 已实现（M0 新增） |
 | [008](008-signalbuilder-as-runtime-seam.md) | `SignalBuilder` 作为两套运行时后端的唯一接缝 | 已实现（M0 新增） |
 | [009](009-foreach-scope-read-outer-only.md) | ForEach 模板先做"只读外层"，留出 key 与作用域 | 已实现（M2 新增） |
+| [010](010-m2-shapes.md) | controller 归 codegen 拥有；prefab v1 只收值；await 传染整条链；打包只做本机能做的 | 已实现（M2 新增） |

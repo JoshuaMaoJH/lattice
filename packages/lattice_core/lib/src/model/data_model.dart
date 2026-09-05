@@ -7,10 +7,22 @@ import 'json_utils.dart';
 
 /// One field of a user-defined struct.
 final class FieldDef {
-  const FieldDef({required this.name, required this.type, this.defaultValue});
+  const FieldDef({
+    required this.name,
+    required this.type,
+    this.defaultValue,
+    String? jsonKey,
+  }) : _jsonKey = jsonKey;
 
   final String name;
   final LatticeType type;
+
+  final String? _jsonKey;
+
+  /// The key this field appears under in JSON. Defaults to [name]; set it when
+  /// the API you are talking to uses a different spelling, which real ones
+  /// usually do (`current_weather` vs `currentWeather`).
+  String get jsonKey => _jsonKey ?? name;
 
   /// JSON-encodable default, used as the constructor default and by the
   /// Inspector when seeding a new value.
@@ -21,6 +33,7 @@ final class FieldDef {
       other is FieldDef &&
       other.name == name &&
       other.type == type &&
+      other.jsonKey == jsonKey &&
       const DeepCollectionEquality().equals(other.defaultValue, defaultValue);
 
   @override
@@ -40,6 +53,7 @@ final class DataModelDef {
     final name = json.str('name', path);
     final rawFields = json.objOrNull('fields', path) ?? const {};
     final defaults = json.objOrNull('defaults', path) ?? const {};
+    final jsonKeys = json.objOrNull('jsonKeys', path) ?? const {};
 
     final fields = <FieldDef>[];
     for (final entry in rawFields.entries) {
@@ -64,6 +78,7 @@ final class DataModelDef {
           name: entry.key,
           type: type,
           defaultValue: defaults[entry.key],
+          jsonKey: jsonKeys[entry.key] as String?,
         ),
       );
     }
@@ -77,6 +92,10 @@ final class DataModelDef {
         'defaults': {
           for (final f in fields)
             if (f.defaultValue != null) f.name: f.defaultValue,
+        },
+        'jsonKeys': {
+          for (final f in fields)
+            if (f.jsonKey != f.name) f.name: f.jsonKey,
         },
       });
 
