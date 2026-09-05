@@ -1,0 +1,20 @@
+{
+  "config": {
+    "appName": "Todos",
+    "bundleId": "com.example.todo_app",
+    "description": "A Lattice example: a list you can add to, tick off and delete.",
+    "organization": "com.example",
+    "packageName": "todo_app",
+    "runtime": "signals",
+    "targets": [
+      "linux",
+      "web",
+      "android"
+    ],
+    "version": "1.0.0+1"
+  },
+  "id": "todo",
+  "pages": [
+    "page_home"
+  ]
+}

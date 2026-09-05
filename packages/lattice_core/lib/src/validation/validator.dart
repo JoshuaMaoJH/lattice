@@ -11,6 +11,7 @@ import '../schema/widget_schema.dart';
 import '../types/lattice_type.dart';
 import '../types/type_parser.dart';
 import 'diagnostic.dart';
+import 'scope.dart';
 
 /// Static checks that run before every codegen and on every editor edit
 /// (§7.5 step 1).
@@ -115,13 +116,211 @@ class Validator {
 
   void _validatePage(Project project, Page page, List<Diagnostic> out) {
     final ctx = NodeContext(graph: page.graph, page: page, project: project);
+    final scopes = ScopeMap.of(page);
 
     _validateIds(page, out);
     _validateHierarchy(page, page.hierarchy, null, out);
+    _validateControlFlow(project, page, ctx, out);
     _validateBindingsAndEvents(project, page, ctx, out);
+    _validateScopes(page, ctx, scopes, out);
     _validateNodes(project, page, ctx, out);
     _validateEdges(page, ctx, out);
     _detectCycles(page, out);
+  }
+
+  /// Rules specific to the structural directives (ADR-009).
+  void _validateControlFlow(
+    Project project,
+    Page page,
+    NodeContext ctx,
+    List<Diagnostic> out,
+  ) {
+    final parents = <String, WidgetNode>{};
+    void index(WidgetNode widget) {
+      for (final child in widget.children) {
+        parents[child.id] = widget;
+        index(child);
+      }
+      for (final prop in widget.props.values) {
+        switch (prop) {
+          case WidgetProp(:final widget):
+            index(widget);
+          case WidgetListProp(:final widgets):
+            for (final w in widgets) {
+              index(w);
+            }
+          default:
+            break;
+        }
+      }
+    }
+
+    index(page.hierarchy);
+
+    for (final widget in page.hierarchy.descendantsAndSelf) {
+      if (widget.type != 'ForEach' && widget.type != 'If') continue;
+
+      if (widget.children.isEmpty) {
+        out.add(Diagnostic.error(
+          code: 'missing_template',
+          message: widget.type == 'ForEach'
+              ? 'ForEach needs one child to use as the item template.'
+              : 'If needs one child to show when the condition holds.',
+          pageId: page.id,
+          widgetId: widget.id,
+        ));
+      }
+
+      final parent = parents[widget.id];
+      if (widget.type == 'ForEach') {
+        // A repeat expands to a collection-`for`, which only exists inside a
+        // list. Anywhere else there is no syntax for "zero or many widgets".
+        final parentSchema =
+            parent == null ? null : WidgetRegistry.lookup(parent.type);
+        if (parentSchema == null ||
+            parentSchema.childArity != ChildArity.many) {
+          out.add(Diagnostic.error(
+            code: 'foreach_needs_list_parent',
+            message: 'ForEach produces any number of widgets, so it must sit '
+                'directly inside something that takes a list of children '
+                '(Column, Row, ListView, Stack, Wrap) — '
+                'its parent here is ${parent?.type ?? 'the page root'}.',
+            pageId: page.id,
+            widgetId: widget.id,
+          ));
+        }
+        _validateItemKey(project, page, ctx, widget, out);
+      }
+    }
+  }
+
+  /// `itemKey` is what gives a row a stable identity across rebuilds. Without
+  /// it Flutter reuses elements by position, so deleting the first row hands
+  /// its internal state to the second (ADR-009). Required whenever items are
+  /// distinguishable — that is, whenever they are models.
+  void _validateItemKey(
+    Project project,
+    Page page,
+    NodeContext ctx,
+    WidgetNode widget,
+    List<Diagnostic> out,
+  ) {
+    final element = ctx.forEachElementType(widget.id);
+    final keyProp = widget.props['itemKey'];
+    final keyField = keyProp is LiteralProp && keyProp.value is String
+        ? keyProp.value! as String
+        : null;
+
+    if (element is! ModelType) {
+      if (keyField != null) {
+        out.add(Diagnostic.warning(
+          code: 'item_key_ignored',
+          message: 'itemKey names a field, but items are '
+              '${element.dartName}; the value itself is used as the key.',
+          pageId: page.id,
+          widgetId: widget.id,
+          pin: 'itemKey',
+        ));
+      }
+      return;
+    }
+
+    if (keyField == null) {
+      out.add(Diagnostic.error(
+        code: 'missing_item_key',
+        message: 'ForEach over ${element.dartName} needs "itemKey": the name '
+            'of the field that identifies an item (for example "id"). '
+            'Without it, reordering or deleting a row moves widget state to '
+            'the wrong row.',
+        pageId: page.id,
+        widgetId: widget.id,
+        pin: 'itemKey',
+      ));
+      return;
+    }
+
+    final model = project.model(element.name);
+    if (model != null && model.field(keyField) == null) {
+      out.add(Diagnostic.error(
+        code: 'unknown_item_key',
+        message: '${element.name} has no field "$keyField". '
+            'Available: ${model.fields.map((f) => f.name).join(', ')}.',
+        pageId: page.id,
+        widgetId: widget.id,
+        pin: 'itemKey',
+      ));
+    }
+  }
+
+  /// Enforces that `item` is only readable inside its own template.
+  void _validateScopes(
+    Page page,
+    NodeContext ctx,
+    ScopeMap scopes,
+    List<Diagnostic> out,
+  ) {
+    String describe(Set<String> missing) => missing.length == 1
+        ? 'the ForEach "${missing.single}"'
+        : 'the ForEach templates ${missing.join(', ')}';
+
+    for (final widget in page.hierarchy.descendantsAndSelf) {
+      for (final entry in widget.props.entries) {
+        final prop = entry.value;
+        if (prop is! BindProp) continue;
+        final missing = scopes.missingFor(widget.id, prop.source.nodeId);
+        if (missing.isEmpty) continue;
+        out.add(Diagnostic.error(
+          code: 'item_out_of_scope',
+          message: '${widget.type}.${entry.key} reads a value that only '
+              'exists inside ${describe(missing)}. Move the widget into that '
+              'template, or lift the value out of the loop.',
+          pageId: page.id,
+          widgetId: widget.id,
+          nodeId: prop.source.nodeId,
+          pin: entry.key,
+        ));
+      }
+    }
+
+    // An action chain may read `item` only if the widget that fires it is
+    // itself inside the template — the generated handler captures the loop
+    // variable through its parameters.
+    for (final event in page.graph.ofType('Event')) {
+      final widgetId = event.get<String>('widget');
+      if (widgetId == null) continue;
+      final available = scopes.enclosing(widgetId).toSet();
+
+      for (final action in _actionChain(page.graph, event.id)) {
+        for (final edge in page.graph.edges) {
+          if (edge.to.nodeId != action) continue;
+          final missing =
+              scopes.scopesOf(edge.from.nodeId).difference(available);
+          if (missing.isEmpty) continue;
+          out.add(Diagnostic.error(
+            code: 'item_out_of_scope',
+            message: 'This action reads a value from ${describe(missing)}, '
+                'but it is triggered by a widget outside that template.',
+            pageId: page.id,
+            widgetId: widgetId,
+            nodeId: action,
+          ));
+        }
+      }
+    }
+  }
+
+  /// Action node ids reachable from an Event through `fire` / `next`.
+  List<String> _actionChain(Graph graph, String eventNodeId) {
+    final chain = <String>[];
+    final seen = <String>{};
+    var edge = graph.outgoing(PinRef(eventNodeId, 'fire')).firstOrNull;
+    while (edge != null) {
+      final id = edge.to.nodeId;
+      if (!seen.add(id)) break;
+      chain.add(id);
+      edge = graph.outgoing(PinRef(id, 'next')).firstOrNull;
+    }
+    return chain;
   }
 
   void _validateIds(Page page, List<Diagnostic> out) {

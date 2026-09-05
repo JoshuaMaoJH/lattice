@@ -78,6 +78,7 @@ apps/
   lattice_editor/    四面板桌面编辑器（M1）
 examples/
   counter/           §8 计数器
+  todo/              ForEach / If / 作用域（R10）
 docs/
   project-proposal.md
   node-reference.md
@@ -106,7 +107,7 @@ UPDATE_GOLDENS=1 dart test packages/lattice_codegen
 |---|---|
 | **M0 打通管线** | ✅ 工程 JSON → 校验 → codegen → `flutter analyze` 零诊断 → `flutter build web` 出产物 |
 | M1 MVP 编辑器 | 未开始（四面板、节点画布） |
-| M2 真实小应用 | 部分预留（Prefab / ForEach / If 尚未实现） |
+| M2 真实小应用 | 进行中：ForEach / If / 作用域已完成（R10），Prefab / HTTP / Dart Code 未做 |
 | M3 全栈 | 未开始 |
 | M4 发布 | CI 工作流已能生成 |
 

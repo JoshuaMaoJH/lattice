@@ -45,6 +45,13 @@ class _PageLowering {
   late final NodeContext ctx;
 
   final Namer namer = Namer(const ['context', 'widget', 'key', 'build']);
+  late final ScopeMap scopes = ScopeMap.of(page);
+
+  /// ForEach widget id -> the loop variables its template runs under.
+  final Map<String, _ScopeVars> scopeVars = {};
+
+  /// Event node id -> the loop variables its handler has to be handed.
+  final Map<String, List<_ScopeArgument>> handlerScopeArgs = {};
   final Map<String, String> signalNames = {};
   final List<SignalIr> signals = [];
   final Map<PinRef, HoistedIr> hoists = {};
@@ -61,11 +68,12 @@ class _PageLowering {
 
   PageIr run() {
     _collectSignals();
+    _collectScopeVars();
     _collectHelpers();
     _planHoists();
     _lowerHandlers();
 
-    final body = _lowerWidget(page.hierarchy);
+    final body = _lowerWidget(page.hierarchy, insideBoundary: false);
 
     return PageIr(
       page: page,
@@ -134,6 +142,23 @@ class _PageLowering {
             nodeId: node.id,
           ),
       };
+
+  /// Names the loop variables for every `ForEach` template.
+  ///
+  /// Done before anything else is lowered because handlers, which are emitted
+  /// as methods rather than inline closures, need to know what to call their
+  /// parameters (ADR-009).
+  void _collectScopeVars() {
+    for (final widget in page.hierarchy.descendantsAndSelf) {
+      if (widget.type != 'ForEach') continue;
+      scopeVars[widget.id] = _ScopeVars(
+        item: namer.take('item'),
+        index: namer.take('index'),
+        element: ctx.forEachElementType(widget.id),
+      );
+      _noteModelUse(ctx.forEachElementType(widget.id));
+    }
+  }
 
   /// `Computed` and `Dart Code` nodes become private functions, so the user's
   /// own Dart is embedded once and called, never pasted at each use site.
@@ -212,6 +237,9 @@ class _PageLowering {
         // A constant used twice costs nothing to inline twice; only reactive
         // work is worth a field.
         if (_signalsFor(node.id).isEmpty) continue;
+        // A value that depends on `item` is per-iteration and has no meaning
+        // as a page-level field, so it stays inline (ADR-009).
+        if (scopes.scopesOf(node.id).isNotEmpty) continue;
         candidates.add(ref);
       }
     }
@@ -326,6 +354,26 @@ class _PageLowering {
       case 'Reroute':
         return _input(node, 'in');
 
+      case 'ForEachItem':
+        final owner = node.get<String>('forEach');
+        final vars = owner == null ? null : scopeVars[owner];
+        if (vars == null) {
+          throw CodegenException(
+            'ForEachItem "${node.id}" does not name a ForEach in this page.',
+            pageId: page.id,
+            nodeId: node.id,
+          );
+        }
+        return switch (ref.pin) {
+          'item' => Emitted.plain(refer(vars.item)),
+          'index' => Emitted.plain(refer(vars.index)),
+          _ => throw CodegenException(
+              'ForEachItem has no pin "${ref.pin}".',
+              pageId: page.id,
+              nodeId: node.id,
+            ),
+        };
+
       case 'Format':
         return _format(node);
 
@@ -394,6 +442,13 @@ class _PageLowering {
           signalDeps: merged.deps,
         );
 
+      case 'ListIsEmpty':
+        final list = _input(node, 'list');
+        return Emitted.plain(
+          list.bare().property('isEmpty'),
+          signalDeps: list.signalDeps,
+        );
+
       case 'ListLength':
         final list = _input(node, 'list');
         return Emitted.plain(
@@ -408,6 +463,45 @@ class _PageLowering {
         return Emitted.plain(
           CodeExpression(Code(
             '[...${renderExpression(list.bare())}, ${renderExpression(item.bare())}]',
+          )),
+          signalDeps: merged.deps,
+        );
+
+      case 'ListSetAt':
+        final list = _input(node, 'list');
+        final index = _input(node, 'index');
+        final item = _input(node, 'item');
+        final merged = Emitted.merge([list, index, item]);
+        return Emitted.plain(
+          CodeExpression(Code(
+            '(List.of(${renderExpression(list.bare())})'
+            '..[${renderExpression(index.bare())}] = '
+            '${renderExpression(item.bare())})',
+          )),
+          signalDeps: merged.deps,
+        );
+
+      case 'MapGet':
+        final map = _input(node, 'map');
+        final key = _input(node, 'key');
+        final merged = Emitted.merge([map, key]);
+        return Emitted.plain(
+          CodeExpression(Code(
+            '${renderExpression(map.bare())}[${renderExpression(key.bare())}]',
+          )),
+          signalDeps: merged.deps,
+        );
+
+      case 'MapPut':
+        final map = _input(node, 'map');
+        final key = _input(node, 'key');
+        final value = _input(node, 'value');
+        final merged = Emitted.merge([map, key, value]);
+        return Emitted.plain(
+          CodeExpression(Code(
+            '{...${renderExpression(map.bare())}, '
+            '${renderExpression(key.bare())}: '
+            '${renderExpression(value.bare())}}',
           )),
           signalDeps: merged.deps,
         );
@@ -548,6 +642,11 @@ class _PageLowering {
       final name = namer.take(Naming.handler(widgetId, eventName));
       handlerNames[node.id] = name;
 
+      // A handler fired from inside a template is still a method on the State
+      // class, so the loop variables it reads have to be handed in. The call
+      // site becomes a closure that passes them (ADR-009).
+      handlerScopeArgs[node.id] = _scopeArgumentsFor(node.id, widgetId);
+
       final payloadType = ctx.eventPayload(widgetId, eventName);
       final hasPayload = payloadType != PrimitiveType.void_;
       _payloadName = hasPayload ? 'value' : null;
@@ -579,11 +678,78 @@ class _PageLowering {
           name: name,
           payloadType: hasPayload ? payloadType : null,
           payloadName: 'value',
+          scopeParameters: [
+            for (final argument in handlerScopeArgs[node.id]!)
+              (name: argument.variable, type: argument.type),
+          ],
           statements: statements,
           trace: trace,
         ),
       );
     }
+  }
+
+  /// The loop variables an event's action chain reads, in outermost-first
+  /// order, restricted to the templates the firing widget actually sits in.
+  List<_ScopeArgument> _scopeArgumentsFor(String eventNodeId, String widgetId) {
+    final enclosing = scopes.enclosing(widgetId);
+    if (enclosing.isEmpty) return const [];
+
+    final used = <String, Set<String>>{};
+    for (final actionId in _actionChain(eventNodeId)) {
+      for (final edge in graph.edges) {
+        if (edge.to.nodeId != actionId) continue;
+        _collectScopePins(edge.from, used, {});
+      }
+    }
+
+    final arguments = <_ScopeArgument>[];
+    for (final forEachId in enclosing) {
+      final pins = used[forEachId];
+      final vars = scopeVars[forEachId];
+      if (pins == null || vars == null) continue;
+      if (pins.contains('item')) {
+        arguments.add(_ScopeArgument(vars.item, vars.element));
+      }
+      if (pins.contains('index')) {
+        arguments.add(_ScopeArgument(vars.index, PrimitiveType.int_));
+      }
+    }
+    return arguments;
+  }
+
+  /// Walks back through data edges recording which `ForEachItem` pins a value
+  /// ultimately reads.
+  void _collectScopePins(
+    PinRef pin,
+    Map<String, Set<String>> into,
+    Set<String> visiting,
+  ) {
+    final node = graph.node(pin.nodeId);
+    if (node == null || !visiting.add(pin.nodeId)) return;
+
+    if (node.type == 'ForEachItem') {
+      final owner = node.get<String>('forEach');
+      if (owner != null) into.putIfAbsent(owner, () => {}).add(pin.pin);
+    }
+    for (final edge in graph.edges) {
+      if (edge.to.nodeId != pin.nodeId) continue;
+      _collectScopePins(edge.from, into, visiting);
+    }
+    visiting.remove(pin.nodeId);
+  }
+
+  List<String> _actionChain(String eventNodeId) {
+    final chain = <String>[];
+    final seen = <String>{};
+    var edge = graph.outgoing(PinRef(eventNodeId, 'fire')).firstOrNull;
+    while (edge != null) {
+      final id = edge.to.nodeId;
+      if (!seen.add(id)) break;
+      chain.add(id);
+      edge = graph.outgoing(PinRef(id, 'next')).firstOrNull;
+    }
+    return chain;
   }
 
   List<Code> _lowerAction(GraphNode action) {
@@ -690,7 +856,7 @@ class _PageLowering {
   // Widget tree
   // ---------------------------------------------------------------------------
 
-  Emitted _lowerWidget(WidgetNode widget) {
+  Emitted _lowerWidget(WidgetNode widget, {required bool insideBoundary}) {
     final schema = WidgetRegistry.lookup(widget.type);
     if (schema == null) {
       throw CodegenException(
@@ -699,6 +865,20 @@ class _PageLowering {
         widgetId: widget.id,
       );
     }
+    if (schema.isPseudo) {
+      // ForEach and If are not expressions on their own; they are expanded by
+      // whichever slot contains them.
+      throw CodegenException(
+        '${widget.type} cannot be used here.',
+        pageId: page.id,
+        widgetId: widget.id,
+      );
+    }
+
+    // Decided up front, so everything below knows whether it is already
+    // covered by a rebuild boundary.
+    final wrap = !insideBoundary && _ownSignalDeps(widget).isNotEmpty;
+    final covered = insideBoundary || wrap;
 
     final positional = <Emitted>[];
     final named = <String, Emitted>{};
@@ -707,7 +887,8 @@ class _PageLowering {
     for (final param in schema.params) {
       final prop = widget.props[param.name];
       if (prop == null) continue;
-      final value = _lowerProp(widget, schema, param, prop);
+      final value =
+          _lowerProp(widget, schema, param, prop, insideBoundary: covered);
       if (value == null) continue;
 
       if (param.emitInto != null) {
@@ -741,22 +922,9 @@ class _PageLowering {
 
     final childrenParam = schema.childrenParam;
     if (childrenParam != null && widget.children.isNotEmpty) {
-      final children = [for (final c in widget.children) _lowerWidget(c)];
-      if (schema.childArity == ChildArity.one) {
-        named[childrenParam] = children.first;
-      } else {
-        final merged = Emitted.merge(children);
-        named[childrenParam] = Emitted(
-          (asConst) {
-            final items = [
-              for (final c in children) c.inContext(parentIsConst: asConst),
-            ];
-            return asConst ? literalConstList(items) : literalList(items);
-          },
-          isConst: merged.isConst,
-          signalDeps: merged.deps,
-        );
-      }
+      named[childrenParam] = schema.childArity == ChildArity.one
+          ? _lowerSingleChild(widget.children.first, insideBoundary: covered)
+          : _lowerChildList(widget.children, insideBoundary: covered);
     }
 
     final parts = [...positional, ...named.values];
@@ -786,10 +954,11 @@ class _PageLowering {
       signalDeps: merged.deps,
     );
 
-    if (!call.isReactive) return call;
+    if (!wrap) return call;
 
-    // The reactive boundary lands here, at the innermost widget whose own
-    // arguments read a signal — everything above it stays static (§7.5).
+    // The reactive boundary lands here: the outermost widget in this branch
+    // whose own arguments read a signal. Descendants were lowered knowing they
+    // are already covered, so boundaries never nest (§7.5).
     // `SignalBuilder` is the one name both runtime backends expose.
     final closure = Method(
       (b) => b
@@ -803,14 +972,278 @@ class _PageLowering {
     );
   }
 
+  /// Signals read by a widget's *own* arguments — not its children's.
+  ///
+  /// Computed structurally off the graph rather than from lowered
+  /// expressions, because the boundary has to be decided before the subtree is
+  /// emitted. A directly nested `ForEach` or `If` counts as the container's
+  /// own dependency: those expand inline into its children list, so it is the
+  /// container that must rebuild when the list or the condition changes.
+  Set<String> _ownSignalDeps(WidgetNode widget) {
+    final deps = <String>{};
+    for (final prop in widget.props.values) {
+      switch (prop) {
+        case BindProp(:final source):
+          deps.addAll(_signalsFor(source.nodeId));
+        case ExprProp(:final code):
+          deps.addAll(_signalsMentionedIn(code));
+        default:
+          break;
+      }
+    }
+    for (final child in widget.children) {
+      if (child.type == 'ForEach' || child.type == 'If') {
+        deps.addAll(_ownSignalDeps(child));
+      }
+    }
+    return deps;
+  }
+
+  /// A single-widget slot (`child`, `body`). `If` becomes a conditional
+  /// expression here, because there is no collection-`if` outside a list.
+  Emitted _lowerSingleChild(
+    WidgetNode child, {
+    required bool insideBoundary,
+  }) {
+    if (child.type == 'If') {
+      return _lowerIfExpression(child, insideBoundary: insideBoundary);
+    }
+    if (child.type == 'ForEach') {
+      throw CodegenException(
+        'ForEach can produce any number of widgets, so it needs a slot that '
+        'takes a list of children.',
+        pageId: page.id,
+        widgetId: child.id,
+      );
+    }
+    return _lowerWidget(child, insideBoundary: insideBoundary);
+  }
+
+  /// A `children:` slot. Structural directives expand into collection-`for`
+  /// and collection-`if` here — exactly the syntax a person reaches for.
+  Emitted _lowerChildList(
+    List<WidgetNode> children, {
+    required bool insideBoundary,
+  }) {
+    final hasStructure =
+        children.any((c) => c.type == 'ForEach' || c.type == 'If');
+
+    if (!hasStructure) {
+      final lowered = [
+        for (final c in children)
+          _lowerWidget(c, insideBoundary: insideBoundary),
+      ];
+      final merged = Emitted.merge(lowered);
+      return Emitted(
+        (asConst) {
+          final items = [
+            for (final c in lowered) c.inContext(parentIsConst: asConst),
+          ];
+          return asConst ? literalConstList(items) : literalList(items);
+        },
+        isConst: merged.isConst,
+        signalDeps: merged.deps,
+      );
+    }
+
+    final deps = <String>{};
+    final elements = <String>[];
+    for (final child in children) {
+      switch (child.type) {
+        case 'ForEach':
+          elements.add(
+            _forEachElement(child, deps, insideBoundary: insideBoundary),
+          );
+        case 'If':
+          elements.add(_ifElement(child, deps, insideBoundary: insideBoundary));
+        default:
+          final lowered = _lowerWidget(child, insideBoundary: insideBoundary);
+          deps.addAll(lowered.signalDeps);
+          elements.add(
+            renderExpression(lowered.inContext(parentIsConst: false)),
+          );
+      }
+    }
+
+    // A list holding a `for` or an `if` is never a constant.
+    return Emitted.plain(
+      CodeExpression(Code('[${elements.join(', ')}]')),
+      signalDeps: deps,
+    );
+  }
+
+  /// `for (final item in todos.value) KeyedSubtree(key: ..., child: ...)`.
+  String _forEachElement(
+    WidgetNode widget,
+    Set<String> deps, {
+    required bool insideBoundary,
+  }) {
+    final vars = scopeVars[widget.id];
+    if (vars == null) {
+      throw CodegenException(
+        'ForEach "${widget.id}" has no loop variables.',
+        pageId: page.id,
+        widgetId: widget.id,
+      );
+    }
+
+    final items =
+        _lowerNamedProp(widget, 'items', insideBoundary: insideBoundary);
+    if (items == null) {
+      throw CodegenException(
+        'ForEach "${widget.id}" has no "items".',
+        pageId: page.id,
+        widgetId: widget.id,
+      );
+    }
+    // Only the list itself is reactive from the outside; anything the template
+    // reads has already been wrapped in its own boundary.
+    deps.addAll(items.signalDeps);
+
+    final template =
+        _lowerWidget(widget.children.first, insideBoundary: insideBoundary);
+    var body = renderExpression(template.inContext(parentIsConst: false));
+
+    final keyField = _itemKeyField(widget);
+    if (keyField != null) {
+      body = 'KeyedSubtree(key: ValueKey(${vars.item}.$keyField), '
+          'child: $body)';
+    }
+
+    final source = renderExpression(items.bare());
+    return _usesIndex(widget.id)
+        ? 'for (final (${vars.index}, ${vars.item}) in $source.indexed) $body'
+        : 'for (final ${vars.item} in $source) $body';
+  }
+
+  /// The field naming an item's identity, or null when items carry none.
+  String? _itemKeyField(WidgetNode widget) {
+    if (ctx.forEachElementType(widget.id) is! ModelType) return null;
+    final prop = widget.props['itemKey'];
+    if (prop is! LiteralProp) return null;
+    final value = prop.value;
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// Whether anything reads this ForEach's `index` pin. Emitting the indexed
+  /// form unconditionally would leave an unused variable in most loops.
+  bool _usesIndex(String forEachWidgetId) => graph.edges.any((edge) {
+        if (edge.from.pin != 'index') return false;
+        final node = graph.node(edge.from.nodeId);
+        return node?.type == 'ForEachItem' &&
+            node?.get<String>('forEach') == forEachWidgetId;
+      });
+
+  /// `if (cond) A else B`, for use inside a children list.
+  String _ifElement(
+    WidgetNode widget,
+    Set<String> deps, {
+    required bool insideBoundary,
+  }) {
+    final (condition, whenTrue, whenFalse) =
+        _ifParts(widget, insideBoundary: insideBoundary);
+    deps.addAll(condition.signalDeps);
+    deps.addAll(whenTrue.signalDeps);
+
+    final buffer = StringBuffer(
+      'if (${renderExpression(condition.bare())}) '
+      '${renderExpression(whenTrue.inContext(parentIsConst: false))}',
+    );
+    if (whenFalse != null) {
+      deps.addAll(whenFalse.signalDeps);
+      buffer.write(
+        ' else ${renderExpression(whenFalse.inContext(parentIsConst: false))}',
+      );
+    }
+    return buffer.toString();
+  }
+
+  /// `cond ? A : B`, for a single-widget slot. The missing branch becomes an
+  /// empty box, because a slot has to hold something.
+  Emitted _lowerIfExpression(
+    WidgetNode widget, {
+    required bool insideBoundary,
+  }) {
+    final (condition, whenTrue, whenFalse) =
+        _ifParts(widget, insideBoundary: insideBoundary);
+    final parts = [condition, whenTrue, if (whenFalse != null) whenFalse];
+    final merged = Emitted.merge(parts);
+
+    final otherwise = whenFalse == null
+        ? 'const SizedBox.shrink()'
+        : renderExpression(whenFalse.inContext(parentIsConst: false));
+
+    // A comparison binds tighter than `?:`, so it needs no parentheses here.
+    // Only a nested conditional would be ambiguous.
+    final conditionSource = renderExpression(condition.bare());
+    final guarded = conditionSource.contains(' ? ')
+        ? '($conditionSource)'
+        : conditionSource;
+
+    return Emitted.plain(
+      CodeExpression(Code(
+        '$guarded '
+        '? ${renderExpression(whenTrue.inContext(parentIsConst: false))} '
+        ': $otherwise',
+      )),
+      isCompound: true,
+      signalDeps: merged.deps,
+    );
+  }
+
+  (Emitted, Emitted, Emitted?) _ifParts(
+    WidgetNode widget, {
+    required bool insideBoundary,
+  }) {
+    final condition =
+        _lowerNamedProp(widget, 'condition', insideBoundary: insideBoundary);
+    if (condition == null || widget.children.isEmpty) {
+      throw CodegenException(
+        'If "${widget.id}" needs a condition and one child.',
+        pageId: page.id,
+        widgetId: widget.id,
+      );
+    }
+    final orElse = widget.props['orElse'];
+    return (
+      condition,
+      _lowerSingleChild(widget.children.first, insideBoundary: insideBoundary),
+      orElse is WidgetProp
+          ? _lowerSingleChild(orElse.widget, insideBoundary: insideBoundary)
+          : null,
+    );
+  }
+
+  /// Lowers one named prop of [widget] outside the usual argument loop, for
+  /// the structural directives whose parameters are consumed rather than
+  /// emitted.
+  Emitted? _lowerNamedProp(
+    WidgetNode widget,
+    String name, {
+    required bool insideBoundary,
+  }) {
+    final schema = WidgetRegistry.lookup(widget.type);
+    final param = schema?.param(name);
+    final prop = widget.props[name];
+    if (schema == null || param == null || prop == null) return null;
+    return _lowerProp(
+      widget,
+      schema,
+      param,
+      prop,
+      insideBoundary: insideBoundary,
+    );
+  }
+
   /// Returns null when the prop is exactly the schema default and can be left
   /// out of the generated call.
   Emitted? _lowerProp(
     WidgetNode widget,
     WidgetSchema schema,
     ParamSchema param,
-    PropValue prop,
-  ) {
+    PropValue prop, {
+    required bool insideBoundary,
+  }) {
     switch (prop) {
       case LiteralProp(:final value):
         if (value == null && !param.required) return null;
@@ -843,13 +1276,29 @@ class _PageLowering {
             widgetId: widget.id,
           );
         }
-        return Emitted.plain(refer(name));
+        final scopeArguments = handlerScopeArgs[eventNodeId] ?? const [];
+        if (scopeArguments.isEmpty) {
+          // Nothing to capture, so a tear-off reads better than a closure.
+          return Emitted.plain(refer(name));
+        }
+        final hasPayload = param.type != PrimitiveType.void_;
+        final parameters = hasPayload ? '(value)' : '()';
+        final arguments = [
+          if (hasPayload) 'value',
+          for (final argument in scopeArguments) argument.variable,
+        ].join(', ');
+        return Emitted.plain(
+          CodeExpression(Code('$parameters => $name($arguments)')),
+        );
 
       case WidgetProp(widget: final child):
-        return _lowerWidget(child);
+        return _lowerWidget(child, insideBoundary: insideBoundary);
 
       case WidgetListProp(:final widgets):
-        final children = [for (final w in widgets) _lowerWidget(w)];
+        final children = [
+          for (final w in widgets)
+            _lowerWidget(w, insideBoundary: insideBoundary),
+        ];
         final merged = Emitted.merge(children);
         return Emitted(
           (asConst) {
@@ -878,4 +1327,26 @@ class _PageLowering {
     }
     return found;
   }
+}
+
+/// The loop variables one `ForEach` template runs under.
+final class _ScopeVars {
+  const _ScopeVars({
+    required this.item,
+    required this.index,
+    required this.element,
+  });
+
+  final String item;
+  final String index;
+  final LatticeType element;
+}
+
+/// One loop variable an event handler has to be handed, because the handler is
+/// a method on the State class and cannot see the loop (ADR-009).
+final class _ScopeArgument {
+  const _ScopeArgument(this.variable, this.type);
+
+  final String variable;
+  final LatticeType type;
 }

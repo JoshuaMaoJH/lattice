@@ -216,6 +216,16 @@ class NodeRegistry {
       outputsFor: (_, __) => [_out('out', _int)],
     ),
     NodeSchema(
+      type: 'ListIsEmpty',
+      category: NodeCategory.compute,
+      summary: 'list.isEmpty',
+      configKeys: const ['elementType'],
+      inputsFor: (node, ctx) => [
+        _in('list', ListType(ctx.resolve(node.get<String>('elementType')))),
+      ],
+      outputsFor: (_, __) => [_out('out', _bool)],
+    ),
+    NodeSchema(
       type: 'ListAppend',
       category: NodeCategory.compute,
       summary: 'A new list with one item appended.',
@@ -239,6 +249,64 @@ class NodeRegistry {
       ],
       outputsFor: (node, ctx) => [
         _out('out', ListType(ctx.resolve(node.get<String>('elementType')))),
+      ],
+    ),
+
+    NodeSchema(
+      type: 'ListSetAt',
+      category: NodeCategory.compute,
+      summary: 'A new list with one index replaced.',
+      configKeys: const ['elementType'],
+      inputsFor: (node, ctx) {
+        final e = ctx.resolve(node.get<String>('elementType'));
+        return [_in('list', ListType(e)), _in('index', _int), _in('item', e)];
+      },
+      outputsFor: (node, ctx) => [
+        _out('out', ListType(ctx.resolve(node.get<String>('elementType')))),
+      ],
+    ),
+    NodeSchema(
+      type: 'MapGet',
+      category: NodeCategory.compute,
+      summary: 'map[key]. The workhorse for per-item UI state keyed by id.',
+      configKeys: const ['keyType', 'valueType'],
+      inputsFor: (node, ctx) {
+        final k = ctx.resolve(node.get<String>('keyType'), fallback: _string);
+        final v = ctx.resolve(node.get<String>('valueType'));
+        return [_in('map', MapType(k, v)), _in('key', k)];
+      },
+      outputsFor: (node, ctx) => [
+        _out('value', NullableType(ctx.resolve(node.get<String>('valueType')))),
+      ],
+    ),
+    NodeSchema(
+      type: 'MapPut',
+      category: NodeCategory.compute,
+      summary: 'A new map with one key set.',
+      configKeys: const ['keyType', 'valueType'],
+      inputsFor: (node, ctx) {
+        final k = ctx.resolve(node.get<String>('keyType'), fallback: _string);
+        final v = ctx.resolve(node.get<String>('valueType'));
+        return [_in('map', MapType(k, v)), _in('key', k), _in('value', v)];
+      },
+      outputsFor: (node, ctx) {
+        final k = ctx.resolve(node.get<String>('keyType'), fallback: _string);
+        final v = ctx.resolve(node.get<String>('valueType'));
+        return [_out('out', MapType(k, v))];
+      },
+    ),
+
+    // ---- control -----------------------------------------------------------
+    NodeSchema(
+      type: 'ForEachItem',
+      category: NodeCategory.control,
+      summary: 'The current item and index inside a ForEach template. '
+          'Readable only by widgets inside that template.',
+      configKeys: const ['forEach'],
+      inputsFor: (_, __) => const [],
+      outputsFor: (node, ctx) => [
+        _out('item', ctx.forEachElementType(node.get<String>('forEach'))),
+        _out('index', _int),
       ],
     ),
 

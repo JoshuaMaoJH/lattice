@@ -1,6 +1,16 @@
 import '../types/lattice_type.dart';
 
-enum WidgetCategory { layout, content, input, structure }
+enum WidgetCategory {
+  layout,
+  content,
+  input,
+  structure,
+
+  /// Repetition and conditionals. These are not Flutter widgets — the compiler
+  /// expands them into collection-`for` / collection-`if` in the surrounding
+  /// children list, which is what a person writes by hand.
+  control,
+}
 
 /// How a widget accepts entries from the Hierarchy's `children` array.
 enum ChildArity {
@@ -88,6 +98,7 @@ final class WidgetSchema {
     this.constructor,
     this.composites = const {},
     this.constCtor = true,
+    this.isPseudo = false,
     this.summary = '',
   });
 
@@ -111,6 +122,12 @@ final class WidgetSchema {
   /// Composite argument name -> the constructor that builds it, for parameters
   /// carrying [ParamSchema.emitInto].
   final Map<String, String> composites;
+
+  /// Whether this entry names a real Flutter constructor at all.
+  ///
+  /// `ForEach` and `If` do not: they are structural directives that codegen
+  /// expands, so nothing here is emitted as `ForEach(...)`.
+  final bool isPseudo;
 
   /// Whether Flutter's constructor for this widget is `const`. Emitting `const`
   /// on one that is not is an analyzer error, so the few exceptions

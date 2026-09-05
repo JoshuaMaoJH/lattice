@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:lattice_codegen/lattice_codegen.dart';
+import 'package:lattice_core/lattice_core.dart';
 import 'package:test/test.dart';
 
 import 'support/fixtures.dart';
@@ -58,6 +59,19 @@ void main() {
         result.files['lib/pages/home_page.dart']!);
     expectGolden('counter_main.dart.txt', result.files['lib/main.dart']!);
     expectGolden('counter_pubspec.yaml.txt', result.files['pubspec.yaml']!);
+  });
+
+  test('the todo example generates the expected page', () async {
+    // Loaded from the shipped example rather than an inline fixture, so this
+    // golden covers exactly what a reader sees in examples/todo.
+    final project = await ProjectIo.load('../../examples/todo');
+    final result = const LatticeGenerator().generate(project);
+    expect(result.isSuccess, isTrue, reason: result.diagnostics.join('\n'));
+
+    expectGolden(
+      'todo_home_page.dart.txt',
+      result.files['lib/pages/home_page.dart']!,
+    );
   });
 
   test('models generate immutable classes with JSON codecs', () {

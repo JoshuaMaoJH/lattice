@@ -22,4 +22,5 @@ export 'src/schema/widget_schema.dart';
 export 'src/types/lattice_type.dart';
 export 'src/types/type_parser.dart';
 export 'src/validation/diagnostic.dart';
+export 'src/validation/scope.dart';
 export 'src/validation/validator.dart';

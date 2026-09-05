@@ -40,8 +40,12 @@
 | `ToString` | ● `value*`: dynamic | ● `out`: String | — | value.toString() |
 | `Conditional` | ● `condition*`: bool<br>● `ifTrue*`: String<br>● `ifFalse*`: String | ● `out`: String | `dartType` | condition ? ifTrue : ifFalse |
 | `ListLength` | ● `list*`: List<dynamic> | ● `out`: int | `elementType` | list.length |
+| `ListIsEmpty` | ● `list*`: List<dynamic> | ● `out`: bool | `elementType` | list.isEmpty |
 | `ListAppend` | ● `list*`: List<dynamic><br>● `item*`: dynamic | ● `out`: List<dynamic> | `elementType` | A new list with one item appended. |
 | `ListRemoveAt` | ● `list*`: List<dynamic><br>● `index*`: int | ● `out`: List<dynamic> | `elementType` | A new list with one index removed. |
+| `ListSetAt` | ● `list*`: List<dynamic><br>● `index*`: int<br>● `item*`: dynamic | ● `out`: List<dynamic> | `elementType` | A new list with one index replaced. |
+| `MapGet` | ● `map*`: Map<String, dynamic><br>● `key*`: String | ● `value`: dynamic? | `keyType`, `valueType` | map[key]. The workhorse for per-item UI state keyed by id. |
+| `MapPut` | ● `map*`: Map<String, dynamic><br>● `key*`: String<br>● `value*`: dynamic | ● `out`: Map<String, dynamic> | `keyType`, `valueType` | A new map with one key set. |
 
 ### 事件
 
@@ -60,6 +64,12 @@
 | `ShowSnackBar` | ▷ `exec`: Event<br>● `message*`: String | ▷ `next`: Event | — | Shows a snack bar on the current Scaffold. |
 | `Print` | ▷ `exec`: Event<br>● `message*`: dynamic | ▷ `next`: Event | — | debugPrint, for tracing a graph. |
 
+### 控制
+
+| 节点 | 输入 | 输出 | 配置 | 说明 |
+|---|---|---|---|---|
+| `ForEachItem` | — | ● `item`: dynamic<br>● `index`: int | `forEach` | The current item and index inside a ForEach template. Readable only by widgets inside that template. |
+
 ### 逃生舱
 
 | 节点 | 输入 | 输出 | 配置 | 说明 |
@@ -75,7 +85,7 @@
 
 ## Widget 白名单
 
-共 35 个。白名单之外的 widget 通过 
+共 37 个。白名单之外的 widget 通过 
 `Dart Code` 节点接入（§7.8）。
 
 参数标记：`*` 必填，`⚡` 可绑定到图输出，`▷` 回调（接 Event 节点），
@@ -118,7 +128,7 @@
 | `IconButton` | — | ▷ `onPressed*`: ()<br>◻ `icon*`: Widget<br>⚡ `tooltip`: String? | A tappable icon. |
 | `FloatingActionButton` | 1 → `child` | ▷ `onPressed*`: ()<br>⚡ `tooltip`: String? | The primary action of a page. |
 | `TextField` | — | ▷ `onChanged`: (String)<br>▷ `onSubmitted`: (String)<br>⚡ `hintText`: String?<br>⚡ `labelText`: String?<br>⚡ `obscureText`: bool = `false`<br>⚡ `keyboardType`: TextInputType? | A single-line text input. |
-| `Checkbox` | — | ⚡ `value*`: bool<br>▷ `onChanged*`: (bool) | A binary toggle box. |
+| `Checkbox` | — | ⚡ `value*`: bool<br>▷ `onChanged*`: (bool?) | A binary toggle box. |
 | `Switch` | — | ⚡ `value*`: bool<br>▷ `onChanged*`: (bool) | A binary on/off switch. |
 | `Slider` | — | ⚡ `value*`: double<br>▷ `onChanged*`: (double)<br>⚡ `min`: double = `0.0`<br>⚡ `max`: double = `1.0` | A continuous value picker. |
 | `GestureDetector` † | 1 → `child` | ▷ `onTap`: ()<br>▷ `onLongPress`: () | Recognises taps on an arbitrary child. |
@@ -135,6 +145,13 @@
 | `Card` | 1 → `child` | ⚡ `elevation`: double?<br>⚡ `color`: Color?<br>⚡ `margin`: EdgeInsets? | Rounded, elevated surface. |
 | `SafeArea` | 1 → `child` | — | Insets its child away from system intrusions. |
 | `SingleChildScrollView` | 1 → `child` | ⚡ `padding`: EdgeInsets? | Makes an oversized child scrollable. |
+
+### control
+
+| Widget | children | 参数 | 说明 |
+|---|---|---|---|
+| `ForEach` † | 1 → `template` | ⚡ `items*`: List<dynamic><br>  `itemKey`: String? | Repeats its template once per item of a list. |
+| `If` † | 1 → `then` | ⚡ `condition*`: bool<br>◻ `orElse`: Widget | Includes its child only when a condition holds. |
 
 † 该 widget 的 Flutter 构造函数不是 `const`，生成代码不会给它加 
 `const`（见 ADR-007）。

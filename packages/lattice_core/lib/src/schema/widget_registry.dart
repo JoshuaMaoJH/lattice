@@ -12,6 +12,7 @@ const _textStyle = PrimitiveType.textStyle;
 const _iconData = PrimitiveType.iconData;
 const _alignment = PrimitiveType.alignment;
 const _void = PrimitiveType.void_;
+const _dyn = PrimitiveType.dynamic_;
 
 LatticeType _opt(LatticeType t) => NullableType(t);
 EnumType _enum(String name) => EnumRegistry.lookup(name)!;
@@ -87,6 +88,39 @@ class WidgetRegistry {
   static void register(WidgetSchema schema) => _byType[schema.type] = schema;
 
   static final List<WidgetSchema> _schemas = [
+    // ---- control -----------------------------------------------------------
+    // Structural directives, not Flutter widgets: the compiler expands them
+    // into `for` / `if` inside the surrounding children list.
+    WidgetSchema(
+      type: 'ForEach',
+      category: WidgetCategory.control,
+      isPseudo: true,
+      constCtor: false,
+      summary: 'Repeats its template once per item of a list.',
+      childArity: ChildArity.one,
+      childrenParam: 'template',
+      params: [
+        _v('items', const ListType(_dyn), req: true),
+        // Which field of `item` identifies it. Without a stable identity,
+        // Flutter reuses elements by position, so deleting the first row hands
+        // its internal state to the second one (ADR-009).
+        _v('itemKey', _opt(_string), bind: false),
+      ],
+    ),
+    WidgetSchema(
+      type: 'If',
+      category: WidgetCategory.control,
+      isPseudo: true,
+      constCtor: false,
+      summary: 'Includes its child only when a condition holds.',
+      childArity: ChildArity.one,
+      childrenParam: 'then',
+      params: [
+        _v('condition', _bool, req: true),
+        _child('orElse'),
+      ],
+    ),
+
     // ---- structure ---------------------------------------------------------
     WidgetSchema(
       type: 'Scaffold',
@@ -407,7 +441,16 @@ class WidgetRegistry {
       summary: 'A binary toggle box.',
       params: [
         _v('value', _bool, req: true),
-        _callback('onChanged', payload: _bool, req: true),
+        // Flutter's Checkbox is tristate-capable, so the callback carries a
+        // nullable bool. Getting this wrong produces a type error only in the
+        // generated project, which is exactly what the schema exists to avoid.
+        ParamSchema(
+          name: 'onChanged',
+          type: NullableType(_bool),
+          kind: ParamKind.callback,
+          required: true,
+          bindable: false,
+        ),
       ],
     ),
     WidgetSchema(

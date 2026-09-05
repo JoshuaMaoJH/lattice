@@ -13,3 +13,4 @@
 | [006](006-ci-matrix-for-cross-host-builds.md) | 全平台构建默认走生成的 CI 工作流 | 已实现 |
 | [007](007-const-decided-at-codegen.md) | const 由 codegen 结构化决定，而非交给 lint | 已实现（M0 新增） |
 | [008](008-signalbuilder-as-runtime-seam.md) | `SignalBuilder` 作为两套运行时后端的唯一接缝 | 已实现（M0 新增） |
+| [009](009-foreach-scope-read-outer-only.md) | ForEach 模板先做"只读外层"，留出 key 与作用域 | 已实现（M2 新增） |

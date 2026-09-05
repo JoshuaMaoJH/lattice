@@ -1,8 +1,14 @@
 import '../model/graph.dart';
+import '../model/hierarchy.dart';
 import '../model/page.dart';
+import '../model/pin_ref.dart';
 import '../model/project.dart';
 import '../types/lattice_type.dart';
 import '../types/type_parser.dart';
+// A deliberate import cycle: resolving a pin's type needs the registry, and
+// the registry's schemas need this context. Dart resolves libraries lazily, so
+// this is well defined.
+import 'node_registry.dart';
 import 'pin_schema.dart';
 import 'widget_registry.dart';
 import 'widget_schema.dart';
@@ -35,11 +41,15 @@ enum NodeCategory {
 
 /// Everything a pin resolver may need to look beyond the node itself.
 final class NodeContext {
-  const NodeContext({required this.graph, this.page, this.project});
+  NodeContext({required this.graph, this.page, this.project});
 
   final Graph graph;
   final Page? page;
   final Project? project;
+
+  /// Guards the `ForEach` -> `ForEachItem` -> `ForEach` loop that a nested
+  /// repeat creates while types are being resolved.
+  final Set<String> _resolving = {};
 
   /// The declared type of a `Signal` node, or `dynamic` if unknown.
   LatticeType signalType(String? signalNodeId) {
@@ -68,6 +78,42 @@ final class NodeContext {
       return PrimitiveType.void_;
     }
     return param.type;
+  }
+
+  /// The Hierarchy node with this id, searching nested widget props too.
+  WidgetNode? widgetNode(String? widgetId) {
+    if (widgetId == null || page == null) return null;
+    for (final widget in page!.hierarchy.descendantsAndSelf) {
+      if (widget.id == widgetId) return widget;
+    }
+    return null;
+  }
+
+  /// The declared type of any output pin in this page's graph.
+  LatticeType outputType(PinRef ref) {
+    final node = graph.node(ref.nodeId);
+    if (node == null) return PrimitiveType.dynamic_;
+    final schema = NodeRegistry.lookup(node.type);
+    return schema?.output(node, this, ref.pin)?.type ?? PrimitiveType.dynamic_;
+  }
+
+  /// The element type behind a `ForEach` widget's `items` binding — that is,
+  /// the type of `item` inside its template.
+  LatticeType forEachElementType(String? forEachWidgetId) {
+    if (forEachWidgetId == null) return PrimitiveType.dynamic_;
+    if (!_resolving.add(forEachWidgetId)) return PrimitiveType.dynamic_;
+    try {
+      final items = widgetNode(forEachWidgetId)?.props['items'];
+      if (items is! BindProp) return PrimitiveType.dynamic_;
+      final type = outputType(items.source);
+      return switch (type) {
+        ListType(:final element) => element,
+        NullableType(inner: ListType(:final element)) => element,
+        _ => PrimitiveType.dynamic_,
+      };
+    } finally {
+      _resolving.remove(forEachWidgetId);
+    }
   }
 
   /// Resolves a type spelling in the context of this project's models.

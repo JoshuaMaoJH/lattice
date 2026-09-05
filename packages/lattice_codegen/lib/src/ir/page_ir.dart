@@ -74,12 +74,18 @@ final class HandlerIr {
     required this.payloadName,
     required this.statements,
     required this.trace,
+    this.scopeParameters = const [],
   });
 
   final String eventNodeId;
   final String name;
   final LatticeType? payloadType;
   final String payloadName;
+
+  /// Loop variables handed in from an enclosing `ForEach` template. Empty for
+  /// a handler on an ordinary widget (ADR-009).
+  final List<({String name, LatticeType type})> scopeParameters;
+
   final List<Code> statements;
 
   /// The chain of action node ids, for the `// ev_btn -> a_inc` comment that

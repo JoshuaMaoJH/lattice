@@ -142,6 +142,12 @@ class PageEmitter {
                   ..name = handler.payloadName
                   ..type = refer(handler.payloadType!.dartName),
               ),
+            for (final parameter in handler.scopeParameters)
+              Parameter(
+                (p) => p
+                  ..name = parameter.name
+                  ..type = refer(parameter.type.dartName),
+              ),
           ])
           ..body = Block.of(handler.statements),
       );
@@ -170,7 +176,9 @@ class PageEmitter {
             (m) => m
               ..name = helper.name
               ..returns = refer(helper.returnType.dartName)
-              ..docs.add('// ${helper.nodeId}')
+              // The leading blank keeps consecutive helpers from running their
+              // comment onto the previous function's last line.
+              ..docs.addAll(['', '// ${helper.nodeId}'])
               ..requiredParameters.addAll([
                 for (final parameter in helper.parameters)
                   Parameter(

@@ -1,0 +1,483 @@
+{
+  "id": "page_home",
+  "name": "Home",
+  "route": "/",
+  "isHome": true,
+  "hierarchy": {
+    "id": "w_root",
+    "type": "Scaffold",
+    "props": {
+      "appBar": {
+        "id": "w_appbar",
+        "type": "AppBar",
+        "props": {
+          "title": {
+            "id": "w_title",
+            "type": "Text",
+            "props": {
+              "data": "Todos"
+            }
+          }
+        }
+      }
+    },
+    "children": [
+      {
+        "id": "w_col",
+        "type": "Column",
+        "children": [
+          {
+            "id": "w_pad",
+            "type": "Padding",
+            "props": {
+              "padding": 16
+            },
+            "children": [
+              {
+                "id": "w_row",
+                "type": "Row",
+                "children": [
+                  {
+                    "id": "w_exp",
+                    "type": "Expanded",
+                    "children": [
+                      {
+                        "id": "w_input",
+                        "type": "TextField",
+                        "props": {
+                          "hintText": "What needs doing?",
+                          "onChanged": {
+                            "$event": "ev_input"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "w_gap",
+                    "type": "SizedBox",
+                    "props": {
+                      "width": 12
+                    }
+                  },
+                  {
+                    "id": "w_add",
+                    "type": "ElevatedButton",
+                    "props": {
+                      "onPressed": {
+                        "$event": "ev_add"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "w_add_label",
+                        "type": "Text",
+                        "props": {
+                          "data": "Add"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "w_empty",
+            "type": "If",
+            "props": {
+              "condition": {
+                "$bind": "n_isEmpty.out"
+              }
+            },
+            "children": [
+              {
+                "id": "w_empty_pad",
+                "type": "Padding",
+                "props": {
+                  "padding": 24
+                },
+                "children": [
+                  {
+                    "id": "w_empty_text",
+                    "type": "Text",
+                    "props": {
+                      "data": "Nothing here yet."
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "w_listexp",
+            "type": "Expanded",
+            "children": [
+              {
+                "id": "w_list",
+                "type": "ListView",
+                "children": [
+                  {
+                    "id": "w_each",
+                    "type": "ForEach",
+                    "props": {
+                      "itemKey": "id",
+                      "items": {
+                        "$bind": "n_todos.value"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "w_tile",
+                        "type": "ListTile",
+                        "props": {
+                          "leading": {
+                            "id": "w_check",
+                            "type": "Checkbox",
+                            "props": {
+                              "onChanged": {
+                                "$event": "ev_toggle"
+                              },
+                              "value": {
+                                "$bind": "n_itemDone.out"
+                              }
+                            }
+                          },
+                          "title": {
+                            "id": "w_tile_title",
+                            "type": "Text",
+                            "props": {
+                              "data": {
+                                "$bind": "n_itemTitle.out"
+                              }
+                            }
+                          },
+                          "trailing": {
+                            "id": "w_del",
+                            "type": "IconButton",
+                            "props": {
+                              "icon": {
+                                "id": "w_del_icon",
+                                "type": "Icon",
+                                "props": {
+                                  "icon": "delete_outline"
+                                }
+                              },
+                              "onPressed": {
+                                "$event": "ev_del"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "dartType": "List<Todo>",
+        "id": "n_todos",
+        "name": "todos",
+        "type": "Signal"
+      },
+      {
+        "dartType": "String",
+        "id": "n_draft",
+        "init": "",
+        "name": "draft",
+        "type": "Signal"
+      },
+      {
+        "dartType": "int",
+        "id": "n_seq",
+        "init": 0,
+        "name": "seq",
+        "type": "Signal"
+      },
+      {
+        "dartType": "String",
+        "id": "n_empty_string",
+        "type": "Const",
+        "value": ""
+      },
+      {
+        "elementType": "Todo",
+        "id": "n_isEmpty",
+        "name": "isEmpty",
+        "type": "ListIsEmpty"
+      },
+      {
+        "dartType": "Todo",
+        "expr": "Todo(id: 'todo_$id', title: title.trim())",
+        "id": "n_newTodo",
+        "inputs": {
+          "id": "int",
+          "title": "String"
+        },
+        "name": "buildTodo",
+        "type": "Computed"
+      },
+      {
+        "elementType": "Todo",
+        "id": "n_appended",
+        "type": "ListAppend"
+      },
+      {
+        "forEach": "w_each",
+        "id": "n_item",
+        "type": "ForEachItem"
+      },
+      {
+        "dartType": "String",
+        "expr": "item.title",
+        "id": "n_itemTitle",
+        "inputs": {
+          "item": "Todo"
+        },
+        "name": "titleOf",
+        "type": "Computed"
+      },
+      {
+        "dartType": "bool",
+        "expr": "item.done",
+        "id": "n_itemDone",
+        "inputs": {
+          "item": "Todo"
+        },
+        "name": "doneOf",
+        "type": "Computed"
+      },
+      {
+        "dartType": "Todo",
+        "expr": "item.copyWith(done: !item.done)",
+        "id": "n_toggled",
+        "inputs": {
+          "item": "Todo"
+        },
+        "name": "toggle",
+        "type": "Computed"
+      },
+      {
+        "elementType": "Todo",
+        "id": "n_replaced",
+        "type": "ListSetAt"
+      },
+      {
+        "elementType": "Todo",
+        "id": "n_removed",
+        "type": "ListRemoveAt"
+      },
+      {
+        "event": "onChanged",
+        "id": "ev_input",
+        "type": "Event",
+        "widget": "w_input"
+      },
+      {
+        "id": "a_draft",
+        "signal": "n_draft",
+        "type": "SetSignal"
+      },
+      {
+        "event": "onPressed",
+        "id": "ev_add",
+        "type": "Event",
+        "widget": "w_add"
+      },
+      {
+        "fn": "(x) => x + 1",
+        "id": "a_bump",
+        "signal": "n_seq",
+        "type": "UpdateSignal"
+      },
+      {
+        "id": "a_append",
+        "signal": "n_todos",
+        "type": "SetSignal"
+      },
+      {
+        "id": "a_clear",
+        "signal": "n_draft",
+        "type": "SetSignal"
+      },
+      {
+        "event": "onChanged",
+        "id": "ev_toggle",
+        "type": "Event",
+        "widget": "w_check"
+      },
+      {
+        "id": "a_toggle",
+        "signal": "n_todos",
+        "type": "SetSignal"
+      },
+      {
+        "event": "onPressed",
+        "id": "ev_del",
+        "type": "Event",
+        "widget": "w_del"
+      },
+      {
+        "id": "a_remove",
+        "signal": "n_todos",
+        "type": "SetSignal"
+      }
+    ],
+    "edges": [
+      {
+        "from": "n_todos.value",
+        "to": "n_isEmpty.list"
+      },
+      {
+        "from": "ev_input.payload",
+        "to": "a_draft.value"
+      },
+      {
+        "from": "ev_input.fire",
+        "to": "a_draft.exec"
+      },
+      {
+        "from": "n_seq.value",
+        "to": "n_newTodo.id"
+      },
+      {
+        "from": "n_draft.value",
+        "to": "n_newTodo.title"
+      },
+      {
+        "from": "n_todos.value",
+        "to": "n_appended.list"
+      },
+      {
+        "from": "n_newTodo.out",
+        "to": "n_appended.item"
+      },
+      {
+        "from": "ev_add.fire",
+        "to": "a_bump.exec"
+      },
+      {
+        "from": "a_bump.next",
+        "to": "a_append.exec"
+      },
+      {
+        "from": "n_appended.out",
+        "to": "a_append.value"
+      },
+      {
+        "from": "a_append.next",
+        "to": "a_clear.exec"
+      },
+      {
+        "from": "n_empty_string.value",
+        "to": "a_clear.value"
+      },
+      {
+        "from": "n_item.item",
+        "to": "n_itemTitle.item"
+      },
+      {
+        "from": "n_item.item",
+        "to": "n_itemDone.item"
+      },
+      {
+        "from": "n_item.item",
+        "to": "n_toggled.item"
+      },
+      {
+        "from": "n_todos.value",
+        "to": "n_replaced.list"
+      },
+      {
+        "from": "n_item.index",
+        "to": "n_replaced.index"
+      },
+      {
+        "from": "n_toggled.out",
+        "to": "n_replaced.item"
+      },
+      {
+        "from": "ev_toggle.fire",
+        "to": "a_toggle.exec"
+      },
+      {
+        "from": "n_replaced.out",
+        "to": "a_toggle.value"
+      },
+      {
+        "from": "n_todos.value",
+        "to": "n_removed.list"
+      },
+      {
+        "from": "n_item.index",
+        "to": "n_removed.index"
+      },
+      {
+        "from": "ev_del.fire",
+        "to": "a_remove.exec"
+      },
+      {
+        "from": "n_removed.out",
+        "to": "a_remove.value"
+      }
+    ]
+  },
+  "layout": {
+    "n_appended": [
+      540.0,
+      200.0
+    ],
+    "n_draft": [
+      80.0,
+      180.0
+    ],
+    "n_isEmpty": [
+      520.0,
+      60.0
+    ],
+    "n_item": [
+      80.0,
+      420.0
+    ],
+    "n_itemDone": [
+      320.0,
+      470.0
+    ],
+    "n_itemTitle": [
+      320.0,
+      400.0
+    ],
+    "n_newTodo": [
+      320.0,
+      200.0
+    ],
+    "n_removed": [
+      560.0,
+      640.0
+    ],
+    "n_replaced": [
+      560.0,
+      540.0
+    ],
+    "n_seq": [
+      80.0,
+      260.0
+    ],
+    "n_todos": [
+      80.0,
+      60.0
+    ],
+    "n_toggled": [
+      320.0,
+      540.0
+    ]
+  }
+}

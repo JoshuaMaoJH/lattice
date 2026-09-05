@@ -1,0 +1,11 @@
+{
+  "name": "Todo",
+  "fields": {
+    "id": "String",
+    "title": "String",
+    "done": "bool"
+  },
+  "defaults": {
+    "done": false
+  }
+}
