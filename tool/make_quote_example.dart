@@ -63,25 +63,28 @@ ServerFunction _priceFor() => ServerFunction(
             type: 'PageParam',
             config: const {'name': 'quantity'},
           ),
+          // The price list is a table, so it lives in hand-written Dart —
+          // on the server, where a price list belongs (§7.8).
           GraphNode(
             id: 'n_unit',
-            type: 'Computed',
+            type: 'DartCode',
             config: const {
               'name': 'unitPrice',
               'dartType': 'double',
               'inputs': {'sku': 'String'},
-              'expr': "sku.toUpperCase().startsWith('PRO') ? 49.0 "
-                  ": sku.toUpperCase().startsWith('LITE') ? 19.0 : 9.0",
+              'imports': ['custom/pricing.dart'],
+              'body': 'return unitPriceFor(sku);',
             },
           ),
           GraphNode(
             id: 'n_discount',
-            type: 'Computed',
+            type: 'DartCode',
             config: const {
-              'name': 'discountFor',
+              'name': 'discountRate',
               'dartType': 'double',
               'inputs': {'quantity': 'int'},
-              'expr': 'quantity >= 100 ? 0.2 : quantity >= 10 ? 0.1 : 0.0',
+              'imports': ['custom/pricing.dart'],
+              'body': 'return discountFor(quantity);',
             },
           ),
           GraphNode(

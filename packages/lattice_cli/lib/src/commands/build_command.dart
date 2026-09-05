@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:lattice_build/lattice_build.dart';
 import 'package:lattice_codegen/io.dart';
 import 'package:lattice_codegen/lattice_codegen.dart';
+import 'package:lattice_server_gen/io.dart';
 import 'package:lattice_server_gen/lattice_server_gen.dart';
 import 'package:lattice_core/lattice_core.dart';
 import 'package:path/path.dart' as p;
@@ -119,6 +120,20 @@ class BuildCommand extends LatticeCommand {
         return 1;
       }
       final serverWritten = await _writeFiles(server.files, serverOutput);
+
+      // Only the hand-written files the server actually reaches for (§7.8).
+      final mirrored = await const ServerCustomMirror().mirror(
+        root,
+        serverOutput,
+        server.customImports,
+      );
+      if (mirrored.any((d) => d.isError)) {
+        for (final problem in mirrored) {
+          console.error('  $problem');
+        }
+        return 1;
+      }
+
       console.success(
         '${server.files.length} server file(s), $serverWritten changed '
         '-> ${p.relative(serverOutput)}',

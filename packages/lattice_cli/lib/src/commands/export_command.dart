@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:lattice_build/lattice_build.dart';
 import 'package:lattice_codegen/io.dart';
 import 'package:lattice_codegen/lattice_codegen.dart';
+import 'package:lattice_server_gen/io.dart';
+import 'package:lattice_server_gen/lattice_server_gen.dart';
 import 'package:lattice_core/lattice_core.dart';
 import 'package:path/path.dart' as p;
 
@@ -84,6 +86,37 @@ class ExportCommand extends LatticeCommand {
       final destination = p.join(output, 'packages', 'lattice_runtime');
       await _copyDirectory(source, destination);
       console.step('Vendored lattice_runtime into packages/');
+    }
+
+    // The server goes under `server/`, which is where the generated CI
+    // workflow looks for it — a full-stack project that ships only its client
+    // is half a release (§7.7).
+    if (project.hasServer) {
+      final serverOutput = p.join(output, 'server');
+      final server = const ServerGenerator().generate(project);
+      if (!server.isSuccess) {
+        for (final error in server.errors) {
+          console.error('  $error');
+        }
+        return 1;
+      }
+      for (final entry in server.files.entries) {
+        final file = File(p.join(serverOutput, entry.key));
+        await file.parent.create(recursive: true);
+        await file.writeAsString(entry.value);
+      }
+      final mirrored = await const ServerCustomMirror().mirror(
+        root,
+        serverOutput,
+        server.customImports,
+      );
+      if (mirrored.any((d) => d.isError)) {
+        for (final problem in mirrored) {
+          console.error('  $problem');
+        }
+        return 1;
+      }
+      console.success('Server exported to ${p.relative(serverOutput)}');
     }
 
     // The README the export ships tells the user to run `flutter run`, so the

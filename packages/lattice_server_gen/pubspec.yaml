@@ -12,6 +12,7 @@ dependencies:
   dart_style: ^3.0.0
   lattice_codegen: ^0.1.0
   lattice_core: ^0.1.0
+  path: ^1.9.0
 
 dev_dependencies:
   lints: ^5.1.0

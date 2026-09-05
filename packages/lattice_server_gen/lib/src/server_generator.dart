@@ -9,12 +9,18 @@ final class ServerGenerationResult {
   const ServerGenerationResult({
     required this.files,
     required this.diagnostics,
+    this.customImports = const [],
   });
 
   /// Path relative to the server project root -> contents.
   final Map<String, String> files;
 
   final List<Diagnostic> diagnostics;
+
+  /// Paths under the project's `custom/` that server functions import, e.g.
+  /// `custom/pricing.dart`. The writer mirrors these — and only these — so a
+  /// hand-written file that uses Flutter never lands on a server (§7.8).
+  final List<String> customImports;
 
   bool get isSuccess => !diagnostics.any((d) => d.isError);
 
@@ -72,6 +78,14 @@ class ServerGenerator {
       files['pubspec.yaml'] = emitter.pubspec(project);
       files['analysis_options.yaml'] = emitter.analysisOptions();
       files['README.md'] = emitter.readme(project, ir);
+
+      return ServerGenerationResult(
+        files: files,
+        diagnostics: diagnostics,
+        customImports: [
+          for (final function in ir.serverFunctions) ...function.extraImports,
+        ]..sort(),
+      );
     } on CodegenException catch (e) {
       diagnostics.add(e.toDiagnostic());
     }

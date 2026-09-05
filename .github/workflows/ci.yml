@@ -1,0 +1,90 @@
+# Lattice's own CI.
+#
+# The rule from §11 is that an example is not green until the code it generates
+# is green: `dart analyze` clean, and the project builds. So this workflow
+# generates every example and analyzes the output, rather than only testing the
+# generator in isolation.
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FLUTTER_CHANNEL: stable
+
+jobs:
+  check:
+    name: format, analyze, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - run: flutter pub get
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed packages/ tool/ apps/lattice_editor/lib apps/lattice_editor/test
+
+      - name: Analyze
+        run: dart analyze packages/ tool/ apps/lattice_editor
+
+      - name: Test — pure Dart packages
+        run: |
+          for package in lattice_core lattice_codegen lattice_server_gen; do
+            (cd "packages/$package" && dart test)
+          done
+
+      - name: Test — Flutter packages
+        run: |
+          (cd packages/lattice_runtime && flutter test)
+          (cd apps/lattice_editor && flutter test)
+
+  examples:
+    name: examples generate and analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - run: flutter pub get
+
+      - name: Generate and analyze every example
+        run: |
+          set -euo pipefail
+          for example in examples/*/; do
+            name=$(basename "$example")
+            echo "::group::$name"
+            dart run packages/lattice_cli/bin/lattice.dart build "$example" --target web --analyze
+            if [ -d "$example/.lattice/build_server" ]; then
+              (cd "$example/.lattice/build_server" && dart pub get && dart analyze)
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Build one example end to end
+        run: |
+          cd examples/todo/.lattice/build
+          flutter build web --release
+
+  editor:
+    name: editor builds for every host
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: linux }
+          - { os: macos-latest, target: macos }
+          - { os: windows-latest, target: windows }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - if: matrix.target == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libgtk-3-dev
+      - run: flutter pub get
+      - name: Build the editor
+        run: cd apps/lattice_editor && flutter build ${{ matrix.target }} --release

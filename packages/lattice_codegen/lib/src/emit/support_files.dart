@@ -144,6 +144,28 @@ the node library cannot say, you can write here and wire in.
     final targets = config.targets.map((t) => t.id).toSet();
     final jobs = <String>[];
 
+    // The server is part of the artefact set: a full-stack project that ships
+    // only its client is half a release (§7.7).
+    if (project.hasServer) {
+      jobs.add('''
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - run: dart pub get
+        working-directory: server
+      - run: dart analyze
+        working-directory: server
+      - name: Compile a single self-contained binary
+        run: dart compile exe bin/server.dart -o ${config.packageName}_server
+        working-directory: server
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${config.packageName}-server
+          path: server/${config.packageName}_server''');
+    }
+
     if (targets.contains('linux')) {
       jobs.add('''
   linux:
