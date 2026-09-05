@@ -1,0 +1,618 @@
+<title>Lattice</title>
+<style>
+  /* ---- tokens: light is the base, both dark states override only these ---- */
+  :root {
+    --ground: #F1F2F6;
+    --surface: #FFFFFF;
+    --sunk: #EAECF2;
+    --ink: #161B29;
+    --muted: #5C6478;
+    --faint: #878FA3;
+    --hairline: #DEE1EA;
+    --hairline-strong: #C6CBD9;
+
+    /* Colour means type — the one rule the editor and this page share (§7.3). */
+    --t-number: #2E6DBE;
+    --t-text: #8A6A12;
+    --t-event: #B25E17;
+    --t-list: #2E7D4F;
+    --t-model: #6A4BB0;
+
+    --highlight: #FFF4D6;
+    --shadow: 0 1px 2px rgba(22, 27, 41, .05), 0 8px 24px -12px rgba(22, 27, 41, .18);
+
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+            "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+            "Liberation Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10131C;
+      --surface: #171B26;
+      --sunk: #0C0F17;
+      --ink: #DDE3F0;
+      --muted: #8B93A8;
+      --faint: #656D82;
+      --hairline: #262E3F;
+      --hairline-strong: #3A4459;
+
+      --t-number: #6AA9F0;
+      --t-text: #E3C766;
+      --t-event: #E39A55;
+      --t-list: #74C98A;
+      --t-model: #B08BE0;
+
+      --highlight: #2A2716;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -12px rgba(0, 0, 0, .6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #10131C;
+    --surface: #171B26;
+    --sunk: #0C0F17;
+    --ink: #DDE3F0;
+    --muted: #8B93A8;
+    --faint: #656D82;
+    --hairline: #262E3F;
+    --hairline-strong: #3A4459;
+
+    --t-number: #6AA9F0;
+    --t-text: #E3C766;
+    --t-event: #E39A55;
+    --t-list: #74C98A;
+    --t-model: #B08BE0;
+
+    --highlight: #2A2716;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -12px rgba(0, 0, 0, .6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: clamp(2.5rem, 6vw, 5.5rem) clamp(1.1rem, 4vw, 2.5rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3rem, 7vw, 5.5rem);
+  }
+
+  /* Identifiers are mono, prose is sans. You can always tell which is which. */
+  code, .mono { font-family: var(--mono); font-size: .92em; }
+
+  h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.15; }
+
+  h1 {
+    font-size: clamp(2.6rem, 7vw, 4.2rem);
+    font-weight: 620;
+    letter-spacing: -.03em;
+  }
+
+  h2 {
+    font-size: clamp(1.35rem, 3vw, 1.7rem);
+    font-weight: 600;
+    letter-spacing: -.015em;
+  }
+
+  h3 { font-size: 1rem; font-weight: 600; letter-spacing: -.005em; }
+
+  p { margin: 0; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    color: var(--faint);
+  }
+
+  .lede {
+    font-size: clamp(1.1rem, 2.4vw, 1.32rem);
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 34ch;
+  }
+
+  .prose { max-width: 66ch; color: var(--muted); }
+  .prose strong { color: var(--ink); font-weight: 600; }
+
+  header { display: flex; flex-direction: column; gap: 1.4rem; }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem .55rem;
+    align-items: center;
+  }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: .74rem;
+    letter-spacing: .01em;
+    padding: .28rem .6rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 999px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+  .section-head { display: flex; flex-direction: column; gap: .55rem; }
+
+  /* ---- the signature: a graph and the code it became, linked ------------- */
+
+  .correspondence {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  @media (max-width: 860px) {
+    .correspondence { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .pane { display: flex; flex-direction: column; min-width: 0; }
+  .pane + .pane { border-left: 1px solid var(--hairline); }
+
+  @media (max-width: 860px) {
+    .pane + .pane { border-left: 0; border-top: 1px solid var(--hairline); }
+  }
+
+  .pane-head {
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+    padding: .65rem .95rem;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .pane-head .hint { font-size: .74rem; color: var(--faint); }
+
+  .graph { padding: .5rem; background: var(--sunk); flex: 1; }
+  .graph svg { width: 100%; height: auto; display: block; }
+
+  .node { cursor: pointer; }
+  .node rect.body {
+    fill: var(--surface);
+    stroke: var(--hairline-strong);
+    stroke-width: 1;
+    rx: 4;
+  }
+  .node rect.head { fill: var(--sunk); rx: 4; }
+  .node text { font-family: var(--mono); fill: var(--ink); }
+  .node text.id { fill: var(--faint); }
+  .node text.pin { fill: var(--muted); }
+  .node:hover rect.body,
+  .node:focus-visible rect.body,
+  .node.on rect.body {
+    stroke: var(--ink);
+    stroke-width: 1.8;
+  }
+  .node:focus-visible { outline: none; }
+  .node:focus-visible rect.body { stroke-dasharray: 4 2; }
+
+  .wire { fill: none; stroke-width: 1.6; }
+  .wire.data { stroke: var(--t-number); }
+  .wire.event { stroke: var(--t-event); stroke-dasharray: 5 4; }
+
+  .dot-number { fill: var(--t-number); }
+  .dot-text { fill: var(--t-text); }
+  .dot-event { fill: none; stroke: var(--t-event); stroke-width: 1.6; }
+
+  pre.code {
+    margin: 0;
+    padding: .85rem 0;
+    background: var(--sunk);
+    overflow-x: auto;
+    flex: 1;
+    font-family: var(--mono);
+    font-size: .78rem;
+    line-height: 1.62;
+    tab-size: 2;
+  }
+
+  pre.code .line {
+    display: block;
+    padding: 0 .95rem;
+    white-space: pre;
+    border-left: 2px solid transparent;
+  }
+  pre.code .line.on {
+    background: var(--highlight);
+    border-left-color: var(--t-event);
+  }
+  pre.code .c { color: var(--faint); font-style: italic; }
+  pre.code .k { color: var(--t-model); }
+  pre.code .s { color: var(--t-list); }
+  pre.code .n { color: var(--t-number); }
+
+  .caption { font-size: .84rem; color: var(--faint); max-width: 60ch; }
+
+  /* ---- ledger ------------------------------------------------------------ */
+
+  .ledger { display: flex; flex-direction: column; gap: 0; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: baseline;
+    padding: .85rem 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .row:last-child { border-bottom: 1px solid var(--hairline); }
+
+  @media (max-width: 620px) {
+    .row { grid-template-columns: minmax(0, 1fr) auto; }
+    .row .stage { grid-column: 1 / -1; }
+  }
+
+  .stage { font-family: var(--mono); font-size: .8rem; color: var(--ink); }
+  .row p { color: var(--muted); font-size: .93rem; }
+
+  .state {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .04em;
+    padding: .16rem .5rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .state.done { color: var(--t-list); border: 1px solid var(--t-list); }
+  .state.going { color: var(--t-event); border: 1px solid var(--t-event); }
+
+  /* ---- numbers ----------------------------------------------------------- */
+
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .figure {
+    background: var(--surface);
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+  }
+
+  .figure b {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+  .figure span { font-size: .78rem; color: var(--muted); }
+
+  /* ---- pillars ----------------------------------------------------------- */
+
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1.1rem;
+  }
+
+  .pillar {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 1.2rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+  .pillar p { font-size: .91rem; color: var(--muted); }
+
+  /* ---- limits ------------------------------------------------------------ */
+
+  ul.limits { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .8rem; }
+  ul.limits li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: .75rem;
+    font-size: .93rem;
+    color: var(--muted);
+    max-width: 68ch;
+  }
+  ul.limits li::before {
+    content: "—";
+    color: var(--faint);
+    font-family: var(--mono);
+  }
+
+  footer {
+    border-top: 1px solid var(--hairline);
+    padding-top: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem 1.5rem;
+    align-items: baseline;
+    font-size: .86rem;
+    color: var(--faint);
+  }
+
+  a { color: var(--ink); text-decoration-color: var(--hairline-strong); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: currentColor; }
+  a:focus-visible { outline: 2px solid var(--t-number); outline-offset: 3px; border-radius: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .node rect.body, pre.code .line { transition: stroke .12s ease, background .12s ease, border-color .12s ease; }
+  }
+</style>
+
+<div class="page">
+
+  <header>
+    <p class="eyebrow">Flutter · Dart · 可视化编程</p>
+    <h1>Lattice</h1>
+    <p class="lede">
+      用层级树描述界面，用节点图描述逻辑，编译出的是真实的 Flutter 源码——
+      不是解释器里的一份仿真。
+    </p>
+    <div class="meta">
+      <span class="chip">MIT</span>
+      <span class="chip">M0 – M3 完成</span>
+      <span class="chip">186 个测试</span>
+      <span class="chip">5 个示例工程</span>
+      <span class="chip">23.8k 行 Dart</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">签名特性</p>
+      <h2>图不是程序的示意图，它就是程序</h2>
+      <p class="prose">
+        节点的 ID 会作为注释留在生成的代码里。这不是装饰——它是「图 ↔ 代码」这条
+        对应关系可被机器验证的形式，也是将来做双向同步的锚点。
+        <strong>把鼠标放到任意一个节点上，看它变成了哪几行 Dart。</strong>
+      </p>
+    </div>
+
+    <div class="correspondence">
+      <div class="pane">
+        <div class="pane-head">
+          <span class="eyebrow">Graph</span>
+          <span class="hint">counter · 4 个节点</span>
+        </div>
+        <div class="graph">
+          <svg viewBox="0 0 420 300" role="img"
+               aria-label="计数器的节点图：Signal 接 Format，Event 接 UpdateSignal">
+            <defs>
+              <pattern id="lat" width="16" height="16" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="1" fill="currentColor" opacity=".18"/>
+              </pattern>
+            </defs>
+            <rect width="420" height="300" fill="url(#lat)" color="var(--faint)"/>
+
+            <path class="wire data" d="M162 72 C200 72 200 108 238 108"/>
+            <path class="wire event" d="M162 216 C200 216 200 252 238 252"/>
+
+            <g class="node" data-node="n_count" tabindex="0" role="button"
+               aria-label="Signal 节点 n_count">
+              <rect class="body" x="30" y="44" width="132" height="52"/>
+              <rect class="head" x="30" y="44" width="132" height="20"/>
+              <text x="40" y="58" font-size="9.5">◆ Signal</text>
+              <text class="id" x="152" y="58" font-size="8" text-anchor="end">n_count</text>
+              <text class="pin" x="152" y="80" font-size="9" text-anchor="end">value</text>
+              <circle class="dot-number" cx="162" cy="76.5" r="3.6"/>
+            </g>
+
+            <g class="node" data-node="n_fmt" tabindex="0" role="button"
+               aria-label="Format 节点 n_fmt">
+              <rect class="body" x="238" y="80" width="132" height="66"/>
+              <rect class="head" x="238" y="80" width="132" height="20"/>
+              <text x="248" y="94" font-size="9.5">ƒ Format</text>
+              <text class="id" x="360" y="94" font-size="8" text-anchor="end">n_fmt</text>
+              <text class="pin" x="360" y="116" font-size="9" text-anchor="end">out</text>
+              <circle class="dot-text" cx="370" cy="112.5" r="3.6"/>
+              <text class="pin" x="252" y="136" font-size="9">args[0]</text>
+              <circle class="dot-number" cx="238" cy="132.5" r="3.6"/>
+            </g>
+
+            <g class="node" data-node="ev_btn" tabindex="0" role="button"
+               aria-label="Event 节点 ev_btn">
+              <rect class="body" x="30" y="188" width="132" height="52"/>
+              <rect class="head" x="30" y="188" width="132" height="20"/>
+              <text x="40" y="202" font-size="9.5">▷ Event</text>
+              <text class="id" x="152" y="202" font-size="8" text-anchor="end">ev_btn</text>
+              <text class="pin" x="152" y="224" font-size="9" text-anchor="end">fire</text>
+              <rect class="dot-event" x="158.5" y="216.5" width="7" height="7"/>
+            </g>
+
+            <g class="node" data-node="a_inc" tabindex="0" role="button"
+               aria-label="UpdateSignal 节点 a_inc">
+              <rect class="body" x="238" y="224" width="132" height="52"/>
+              <rect class="head" x="238" y="224" width="132" height="20"/>
+              <text x="248" y="238" font-size="9.5">● UpdateSignal</text>
+              <text class="id" x="360" y="238" font-size="8" text-anchor="end">a_inc</text>
+              <text class="pin" x="252" y="260" font-size="9">exec</text>
+              <rect class="dot-event" x="234.5" y="252.5" width="7" height="7"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="pane">
+        <div class="pane-head">
+          <span class="eyebrow">Dart</span>
+          <span class="hint">lib/pages/home_page.dart · 生成</span>
+        </div>
+        <pre class="code" aria-label="生成的 Dart 源码"><span class="line"><span class="k">class</span> _HomePageState <span class="k">extends</span> State&lt;HomePage&gt; {</span><span class="line" data-node="n_count">  <span class="c">// n_count</span></span><span class="line" data-node="n_count">  <span class="k">final</span> count = signal&lt;<span class="k">int</span>&gt;(<span class="n">0</span>);</span><span class="line"></span><span class="line" data-node="ev_btn a_inc">  <span class="c">// ev_btn -&gt; a_inc</span></span><span class="line" data-node="ev_btn">  <span class="k">void</span> _onBtnPressed() {</span><span class="line" data-node="a_inc">    count.value = count.value + <span class="n">1</span>;</span><span class="line" data-node="ev_btn">  }</span><span class="line"></span><span class="line">  @override</span><span class="line">  Widget build(BuildContext context) {</span><span class="line">    <span class="k">return</span> Scaffold(</span><span class="line">      appBar: AppBar(title: <span class="k">const</span> Text(<span class="s">'Counter'</span>)),</span><span class="line">      body: Column(</span><span class="line">        mainAxisAlignment: MainAxisAlignment.center,</span><span class="line">        children: [</span><span class="line" data-node="n_fmt n_count">          SignalBuilder(builder: (context) =&gt; Text(<span class="s">'Count: ${count.value}'</span>)),</span><span class="line" data-node="ev_btn">          ElevatedButton(onPressed: _onBtnPressed, child: <span class="k">const</span> Text(<span class="s">'+1'</span>)),</span><span class="line">        ],</span><span class="line">      ),</span><span class="line">    );</span><span class="line">  }</span><span class="line">}</span></pre>
+      </div>
+    </div>
+
+    <p class="caption">
+      逐字节取自仓库里的 golden 快照。只有依赖 Signal 的那一行被 <code>SignalBuilder</code>
+      包住，其余保持 <code>const</code>——这就是「生成代码和手写一样好」的具体含义。
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">三个支柱</p>
+      <h2>结构用树，逻辑用图，产物是源码</h2>
+    </div>
+    <div class="pillars">
+      <div class="pillar">
+        <h3>层级树</h3>
+        <p>
+          就是 widget tree。37 个白名单 widget，每个带一份参数 schema——
+          它同时驱动属性面板、图上的引脚、和发射出的构造函数调用。
+        </p>
+      </div>
+      <div class="pillar">
+        <h3>节点图</h3>
+        <p>
+          45 个节点，响应式信号模型：Signal → Computed → widget 参数，无环。
+          没有执行线——Signal 变了，下游自己重算。
+        </p>
+      </div>
+      <div class="pillar">
+        <h3>编译器</h3>
+        <p>
+          图 → IR → <code>code_builder</code> → <code>dart_format</code>。
+          57 种带节点 ID 的诊断，在生成之前就把错误定位到画布上。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">进度</p>
+      <h2>五个里程碑，四个已交付</h2>
+    </div>
+    <div class="ledger">
+      <div class="row">
+        <span class="stage">M0</span>
+        <p>打通管线：手写工程 JSON → codegen → 能跑的界面</p>
+        <span class="state done">完成</span>
+      </div>
+      <div class="row">
+        <span class="stage">M1</span>
+        <p>四面板编辑器与自研节点画布；预览热重载实测 265ms</p>
+        <span class="state done">完成</span>
+      </div>
+      <div class="row">
+        <span class="stage">M2</span>
+        <p>Prefab、ForEach / If 与模板作用域、多页面传参、HTTP、打包</p>
+        <span class="state done">完成</span>
+      </div>
+      <div class="row">
+        <span class="stage">M3</span>
+        <p>服务端函数编译成可运行的服务端，客户端拿到类型化 RPC</p>
+        <span class="state done">完成</span>
+      </div>
+      <div class="row">
+        <span class="stage">M4</span>
+        <p>跨宿主构建矩阵、签名流程、文档与开源发布</p>
+        <span class="state going">进行中</span>
+      </div>
+    </div>
+
+    <div class="figures">
+      <div class="figure"><b>0</b><span>生成工程的 analyze 诊断</span></div>
+      <div class="figure"><b>265<small>ms</small></b><span>热重载往返</span></div>
+      <div class="figure"><b>51</b><span>节点的示例，折叠后单屏可读</span></div>
+      <div class="figure"><b>6.6<small>MB</small></b><span>服务端自包含二进制</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">同一张图，两个产物</p>
+      <h2>前后端只有一种语言</h2>
+      <p class="prose">
+        标记为服务端的子图编译成一个只依赖 <code>dart:io</code> 的程序，客户端拿到
+        类型化的调用桩。模型文件两边逐字节相同——「一个 Quote 是什么」只有一个定义。
+      </p>
+    </div>
+    <div class="correspondence">
+      <div class="pane">
+        <div class="pane-head"><span class="eyebrow">客户端</span><span class="hint">调用点</span></div>
+        <pre class="code"><span class="line">quote.value = <span class="k">await</span> priceFor(sku.value, quantity.value);</span></pre>
+      </div>
+      <div class="pane">
+        <div class="pane-head"><span class="eyebrow">服务端</span><span class="hint">POST /rpc/priceFor</span></div>
+        <pre class="code"><span class="line">Quote priceFor(String sku, <span class="k">int</span> quantity) =&gt;</span><span class="line">    _buildQuote(sku, quantity, _unitPrice(sku), _discountRate(quantity));</span></pre>
+      </div>
+    </div>
+    <p class="caption">
+      序列化在生成的桩里，页面看不到它。真实往返已验证：
+      <code class="mono">{"result":{"sku":"PRO-1","total":529.2}}</code>
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <p class="eyebrow">还没做到的</p>
+      <h2>这些是真的没做，不是没写</h2>
+    </div>
+    <ul class="limits">
+      <li>服务端<strong>没有部署过</strong>。生成的是零依赖 Dart 程序，扔到装了 Dart 的主机上就能跑，但这一步没验证。</li>
+      <li>Linux / Android 的<strong>打包没跑通</strong>，只产出过 web 的 zip——<code>flutter_distributor</code> 没装。</li>
+      <li>编辑器<strong>没有多选</strong>，所以折叠的成员是在属性面板里以逗号分隔的 ID 列表编辑的。</li>
+      <li>Prefab <strong>不收 children 和回调</strong>。回调意味着组件要往外发事件，那需要先想清楚它的形状。</li>
+      <li>ForEach 模板里<strong>不能有自己的状态</strong>。每项一份的状态需要先解决身份问题，方案留了缝，还没做。</li>
+      <li>图 ↔ 代码<strong>只有单向</strong>。反向同步的锚点（节点 ID 注释）已经在了，但没实现。</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Lattice · MIT</span>
+    <span>Flutter 3.47 · Dart 3.13</span>
+    <span>7 个提交，M0 – M4</span>
+  </footer>
+</div>
+
+<script>
+  // The link between the two panes is the node id, which is genuinely in the
+  // generated source as a comment — the page is not faking a correspondence.
+  const nodes = document.querySelectorAll('.node');
+  const lines = document.querySelectorAll('pre.code .line[data-node]');
+
+  function setActive(id) {
+    nodes.forEach(n => n.classList.toggle('on', !!id && n.dataset.node === id));
+    lines.forEach(l =>
+      l.classList.toggle('on', !!id && l.dataset.node.split(' ').includes(id)),
+    );
+  }
+
+  nodes.forEach(node => {
+    const id = node.dataset.node;
+    node.addEventListener('mouseenter', () => setActive(id));
+    node.addEventListener('focus', () => setActive(id));
+    node.addEventListener('mouseleave', () => setActive(null));
+    node.addEventListener('blur', () => setActive(null));
+  });
+
+  lines.forEach(line => {
+    const ids = line.dataset.node.split(' ');
+    line.addEventListener('mouseenter', () => setActive(ids[0]));
+    line.addEventListener('mouseleave', () => setActive(null));
+  });
+</script>

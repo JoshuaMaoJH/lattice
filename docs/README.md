@@ -6,6 +6,7 @@
 | [节点参考](node-reference.md) | 内置节点库。由 `tool/generate_node_reference.dart` 生成 |
 | [签名与公证](signing.md) | 让产物**能装上**，不只是能构建 |
 | [决策记录](decisions/) | 做过的选择与代价，尤其是偏离项目书的那些 |
+| [项目页](site/) | 自包含的单页介绍，可直接部署 |
 
 ## 从哪读起
 
