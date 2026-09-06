@@ -66,6 +66,20 @@ Gradle 首次构建要拉 wrapper 发行包和依赖，十分钟起步；之后�
 签名见 [签名与公证](signing.md)。**不设签名环境变量也能出包**，只是签的是
 Flutter 的 debug key。
 
+## 编辑器自己
+
+编辑器是普通 Flutter 工程，不是 Lattice 工程，所以没有哪一步会给它生成打包配置。
+`tool/package_editor.dart` 把它交给同一份代码处理，而不是另抄一套配置文件：
+
+```bash
+dart run tool/package_editor.dart      # -> apps/lattice_editor/dist/linux/<版本>/
+sudo dpkg -i apps/lattice_editor/dist/linux/*/lattice_editor-*-linux.deb
+lattice_editor /path/to/工程目录       # 不给参数则打开内置的计数器示例
+```
+
+装到 `/opt/lattice_editor/`，`postinst` 往 `/usr/bin/lattice_editor` 建软链，
+桌面项进 `/usr/share/applications/`。AppImage 不用装，`chmod +x` 直接跑。
+
 ## 应用身份
 
 三个字段决定产物长什么样，都在 `project.json` 的 `config` 里：

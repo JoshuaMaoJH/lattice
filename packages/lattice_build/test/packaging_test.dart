@@ -8,6 +8,7 @@ import 'package:test/test.dart';
 /// What `lattice package` needs to exist before flutter_distributor will run
 /// (§7.9 step 4).
 void main() {
+  _debDependencies();
   _artifactNaming();
   late Directory output;
 
@@ -109,6 +110,32 @@ void main() {
       // Only the shared icon, which every project gets.
       expect(written, [PackagingConfig.iconPath]);
     });
+  });
+}
+
+void _debDependencies() {
+  test('the deb declares what a Flutter Linux app needs to launch', () async {
+    final dir = Directory.systemTemp.createTempSync('lattice_deb_deps');
+    addTearDown(() => dir.deleteSync(recursive: true));
+
+    await const PackagingConfig().write(
+      dir.path,
+      const ProjectConfig(
+        appName: 'Todos',
+        packageName: 'todo_app',
+        organization: 'com.example',
+        bundleId: 'com.example.todo_app',
+      ),
+      const [BuildTarget.linux],
+    );
+
+    final deb = File(
+      p.join(dir.path, 'linux', 'packaging', 'deb', 'make_config.yaml'),
+    ).readAsStringSync();
+    expect(deb, contains('- libgtk-3-0'));
+    // Not the 24.04 `-t64` names: those do not exist on older releases, while
+    // the un-suffixed names are Provided on both.
+    expect(deb, isNot(contains('t64')));
   });
 }
 

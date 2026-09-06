@@ -18,6 +18,9 @@ workspace:
 
 dependencies:
   lattice_core: ^0.1.0
+  # tool/package_editor.dart packages the editor with the same code
+  # `lattice package` uses on a generated project.
+  lattice_build: ^0.1.0
 
 dev_dependencies:
   melos: ^7.0.0
