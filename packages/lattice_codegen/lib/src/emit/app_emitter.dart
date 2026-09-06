@@ -23,6 +23,8 @@ class AppEmitter {
       (b) => b
         ..directives.addAll([
           Directive.import('package:flutter/material.dart'),
+          if (project.collections.isNotEmpty)
+            Directive.import('collections.dart'),
           for (final page in project.pages)
             Directive.import('pages/${page.fileName}'),
         ])
@@ -30,8 +32,21 @@ class AppEmitter {
           Method(
             (m) => m
               ..name = 'main'
-              ..returns = refer('void')
-              ..body = Code('runApp(const $appClass());'),
+              // Storage is asynchronous, so the stored data has to be in hand
+              // before the first frame — otherwise the app renders empty and
+              // then jumps, which reads as data loss.
+              ..returns = refer(
+                project.collections.isEmpty ? 'void' : 'Future<void>',
+              )
+              ..modifier =
+                  project.collections.isEmpty ? null : MethodModifier.async
+              ..body = Code(
+                project.collections.isEmpty
+                    ? 'runApp(const $appClass());'
+                    : 'WidgetsFlutterBinding.ensureInitialized();\n'
+                        'await loadCollections();\n'
+                        'runApp(const $appClass());',
+              ),
           ),
           Class(
             (b) => b

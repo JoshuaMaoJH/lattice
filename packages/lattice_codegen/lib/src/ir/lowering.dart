@@ -92,6 +92,10 @@ class _PageLowering {
   /// is only emitted where it is used.
   bool _usesDebug = false;
 
+  /// Whether this page touches the data layer, so `collections.dart` is only
+  /// imported where it is used.
+  bool _usesCollections = false;
+
   /// Set while lowering one handler; an awaited action flips it.
   bool _chainIsAsync = false;
 
@@ -126,6 +130,7 @@ class _PageLowering {
       usesJson: _usesJson,
       usesRpc: _usesRpc,
       usesDebug: _usesDebug,
+      usesCollections: _usesCollections,
       usedPrefabs: usedPrefabs.toList(),
     );
   }
@@ -366,7 +371,9 @@ class _PageLowering {
     if (node == null) return const {};
 
     final result = <String>{};
-    if (node.type == 'Signal') {
+    // A collection's items live in a signal too, so reading one is a reactive
+    // read and the widget that does it needs a rebuild boundary (R19).
+    if (node.type == 'Signal' || node.type == 'CollectionItems') {
       result.add(nodeId);
     } else {
       for (final edge in graph.edges) {
@@ -442,6 +449,23 @@ class _PageLowering {
         _noteModelUse(type);
         return literals.emit(type, node.config['value'],
             where: 'Const ${node.id}', pageId: unit.id, nodeId: node.id);
+
+      case 'CollectionItems':
+        final name = node.get<String>('collection');
+        if (name == null || ctx.project?.collection(name) == null) {
+          throw CodegenException(
+            'CollectionItems "${node.id}" names no collection.',
+            pageId: unit.id,
+            nodeId: node.id,
+          );
+        }
+        _usesCollections = true;
+        // Reactive like a Signal: the list lives in one, so a page that reads
+        // it gets a rebuild boundary for free.
+        return Emitted.reactive(
+          refer(name).property('items').property('value'),
+          {node.id},
+        );
 
       case 'Reroute':
         return _input(node, 'in');
@@ -982,6 +1006,12 @@ class _PageLowering {
       case 'CallServer':
         return _lowerCallServer(action);
 
+      case 'CollectionAdd':
+      case 'CollectionUpdate':
+      case 'CollectionRemoveAt':
+      case 'CollectionClear':
+        return _lowerCollectionAction(action);
+
       case 'InvokeCallback':
         final name = action.get<String>('name');
         final parameter = name == null ? null : unit.parameter(name);
@@ -1082,6 +1112,42 @@ class _PageLowering {
       },
     );
     return (source: source, deps: deps);
+  }
+
+  /// One of the collection actions (R19).
+  ///
+  /// Every one of them saves, so every one of them awaits — a write that is
+  /// only in memory until the next frame is the kind of bug that shows up as
+  /// "it forgot what I typed".
+  List<Code> _lowerCollectionAction(GraphNode action) {
+    final name = action.get<String>('collection');
+    final collection = name == null ? null : ctx.project?.collection(name);
+    if (collection == null) {
+      throw CodegenException(
+        '${action.type} "${action.id}" names no collection.',
+        pageId: unit.id,
+        nodeId: action.id,
+      );
+    }
+    _usesCollections = true;
+    _chainIsAsync = true;
+    _noteModelUse(ModelType(collection.element));
+
+    String argument(String pin) => renderExpression(_input(action, pin).bare());
+
+    return switch (action.type) {
+      'CollectionAdd' => [
+          Code("await $name.add(${argument('item')});"),
+        ],
+      'CollectionUpdate' => [
+          Code('await $name.replaceAt('
+              "${argument('index')}, ${argument('item')});"),
+        ],
+      'CollectionRemoveAt' => [
+          Code("await $name.removeAt(${argument('index')});"),
+        ],
+      _ => [Code('await $name.clear();')],
+    };
   }
 
   /// A call to a server function (§7.7).

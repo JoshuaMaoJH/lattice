@@ -42,7 +42,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-$runtimeDependency${usesHttp ? '\n  http: ^1.2.0' : ''}
+$runtimeDependency${usesHttp ? '\n  http: ^1.2.0' : ''}${project.collections.isEmpty ? '' : '\n  web: ^1.1.0'}
 
 dev_dependencies:
   flutter_test:

@@ -152,6 +152,7 @@ final class PageIr {
     this.usesJson = false,
     this.usesRpc = false,
     this.usesDebug = false,
+    this.usesCollections = false,
     this.usedPrefabs = const [],
   });
 
@@ -194,6 +195,9 @@ final class PageIr {
 
   /// Whether this page reports state changes on the debug channel (R21).
   final bool usesDebug;
+
+  /// Whether this page reads or writes a collection (R19).
+  final bool usesCollections;
 
   /// File names of the prefabs this unit places, for its imports (R9).
   final List<String> usedPrefabs;

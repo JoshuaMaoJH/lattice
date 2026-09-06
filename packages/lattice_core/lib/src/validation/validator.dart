@@ -66,6 +66,7 @@ class Validator {
 
     _validateModels(project, out);
     _validateCustomNodes(project, out);
+    _validateCollections(project, out);
     _validatePrefabDeclarations(project, out);
 
     final widgets = WidgetLookup(project);
@@ -158,6 +159,50 @@ class Validator {
           message: 'Compute node "${def.type}" has ${def.outputs.length} '
               'outputs. A compute node is an expression, so it has exactly '
               'one.',
+        ));
+      }
+    }
+  }
+
+  /// The data layer (R19).
+  void _validateCollections(Project project, List<Diagnostic> out) {
+    final seen = <String>{};
+    for (final collection in project.collections) {
+      if (!_identifier.hasMatch(collection.name)) {
+        out.add(Diagnostic.error(
+          code: 'collection_name',
+          message: '"${collection.name}" is not usable as a collection name. '
+              'Use a Dart style identifier, e.g. "todos".',
+        ));
+        continue;
+      }
+      if (!seen.add(collection.name)) {
+        out.add(Diagnostic.error(
+          code: 'duplicate_collection',
+          message: 'Collection "${collection.name}" is declared more than '
+              'once.',
+        ));
+      }
+      final model = project.model(collection.element);
+      if (model == null) {
+        out.add(Diagnostic.error(
+          code: 'unknown_collection_model',
+          message: 'Collection "${collection.name}" is of '
+              '"${collection.element}", which is not a model in this project.',
+        ));
+        continue;
+      }
+      if (!collection.persist) continue;
+      for (final field in model.fields) {
+        if (field.type.isSerializable) continue;
+        // Same rule as the server boundary (§7.7): if it cannot be written as
+        // JSON it cannot be stored, and finding out at run time is too late.
+        out.add(Diagnostic.error(
+          code: 'unstorable_collection',
+          message: 'Collection "${collection.name}" stores '
+              '${collection.element}, whose "${field.name}" is a '
+              '${field.type.dartName} and has no JSON form. Mark the '
+              'collection as not persisted, or change the field.',
         ));
       }
     }

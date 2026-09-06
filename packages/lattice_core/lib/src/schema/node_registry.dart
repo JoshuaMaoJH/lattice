@@ -473,6 +473,55 @@ class NodeRegistry {
       outputs: [_next],
     ),
 
+    // ---- data layer (R19) ---------------------------------------------------
+    NodeSchema(
+      type: 'CollectionItems',
+      category: NodeCategory.state,
+      summary: 'Everything in a collection. Reads are reactive.',
+      configKeys: const ['collection'],
+      inputsFor: (_, __) => const [],
+      outputsFor: (node, ctx) => [
+        _out('items', ListType(ctx.collectionElement(node))),
+      ],
+    ),
+    NodeSchema(
+      type: 'CollectionAdd',
+      category: NodeCategory.action,
+      summary: 'Appends one entry and saves.',
+      configKeys: const ['collection'],
+      inputsFor: (node, ctx) =>
+          [_exec, _in('item', ctx.collectionElement(node))],
+      outputsFor: (_, __) => [_next],
+    ),
+    NodeSchema(
+      type: 'CollectionUpdate',
+      category: NodeCategory.action,
+      summary: 'Replaces the entry at an index and saves.',
+      configKeys: const ['collection'],
+      inputsFor: (node, ctx) => [
+        _exec,
+        _in('index', _int),
+        _in('item', ctx.collectionElement(node)),
+      ],
+      outputsFor: (_, __) => [_next],
+    ),
+    NodeSchema.fixed(
+      type: 'CollectionRemoveAt',
+      category: NodeCategory.action,
+      summary: 'Removes the entry at an index and saves.',
+      configKeys: const ['collection'],
+      inputs: [_exec, PinSchema(name: 'index', type: _int, required: true)],
+      outputs: [_next],
+    ),
+    NodeSchema.fixed(
+      type: 'CollectionClear',
+      category: NodeCategory.action,
+      summary: 'Empties a collection and saves.',
+      configKeys: const ['collection'],
+      inputs: [_exec],
+      outputs: [_next],
+    ),
+
     NodeSchema.fixed(
       type: 'InvokeCallback',
       category: NodeCategory.action,

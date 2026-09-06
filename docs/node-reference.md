@@ -13,6 +13,7 @@
 | 节点 | 输入 | 输出 | 配置 | 说明 |
 |---|---|---|---|---|
 | `Signal` | — | ● `value`: dynamic | `dartType`, `init`, `name` | The only mutable state source. Reads are reactive. |
+| `CollectionItems` | — | ● `items`: List<dynamic> | `collection` | Everything in a collection. Reads are reactive. |
 
 ### 计算（纯函数）
 
@@ -71,6 +72,10 @@
 | `HttpRequest` | ▷ `exec`: VoidCallback<br>● `url*`: String | ▷ `next`: VoidCallback | `method`, `signal`, `loadingSignal`, `errorSignal`, `decode` | Fetches a URL and decodes the body into a Signal. The handler it sits in becomes async (R13). |
 | `ShowSnackBar` | ▷ `exec`: VoidCallback<br>● `message*`: String | ▷ `next`: VoidCallback | — | Shows a snack bar on the current Scaffold. |
 | `Print` | ▷ `exec`: VoidCallback<br>● `message*`: dynamic | ▷ `next`: VoidCallback | — | debugPrint, for tracing a graph. |
+| `CollectionAdd` | ▷ `exec`: VoidCallback<br>● `item*`: dynamic | ▷ `next`: VoidCallback | `collection` | Appends one entry and saves. |
+| `CollectionUpdate` | ▷ `exec`: VoidCallback<br>● `index*`: int<br>● `item*`: dynamic | ▷ `next`: VoidCallback | `collection` | Replaces the entry at an index and saves. |
+| `CollectionRemoveAt` | ▷ `exec`: VoidCallback<br>● `index*`: int | ▷ `next`: VoidCallback | `collection` | Removes the entry at an index and saves. |
+| `CollectionClear` | ▷ `exec`: VoidCallback | ▷ `next`: VoidCallback | `collection` | Empties a collection and saves. |
 | `InvokeCallback` | ▷ `exec`: VoidCallback | ▷ `next`: VoidCallback | `name` | Fires one of this prefab's Event parameters back at its host. |
 | `ShowDialog` | ▷ `exec`: VoidCallback<br>● `title*`: String<br>● `message*`: String | ▷ `next`: VoidCallback | `dismissLabel` | A modal alert with a title, a message and one dismiss button. |
 

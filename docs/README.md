@@ -17,7 +17,7 @@
 [ADR-007](decisions/007-const-decided-by-codegen.md)（为什么 const 由 codegen
 决定而不是交给 lint）——它最能说明这个项目对生成代码质量的标准。
 
-想知道**它有多少是真的**：`examples/` 下五个工程，全部生成、全部 `flutter
+想知道**它有多少是真的**：`examples/` 下六个工程，全部生成、全部 `flutter
 analyze` 零诊断、全部进 CI。每个的 README 都写了它要证明什么，以及它证明不了什么。
 
 ## 已知偏离项目书之处

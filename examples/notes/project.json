@@ -1,0 +1,28 @@
+{
+  "config": {
+    "appName": "Notes",
+    "bundleId": "com.example.notes_app",
+    "description": "A Lattice example: a list that survives a restart.",
+    "organization": "com.example",
+    "packageName": "notes_app",
+    "runtime": "signals",
+    "serverUrl": "http://localhost:8080",
+    "targets": [
+      "linux",
+      "web"
+    ],
+    "version": "1.0.0+1"
+  },
+  "id": "notes",
+  "pages": [
+    "page_home"
+  ],
+  "prefabs": [],
+  "server": [],
+  "collections": [
+    {
+      "name": "notes",
+      "of": "Note"
+    }
+  ]
+}

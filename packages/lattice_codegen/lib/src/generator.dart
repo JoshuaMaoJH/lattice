@@ -2,6 +2,7 @@ import 'package:dart_style/dart_style.dart';
 import 'package:lattice_core/lattice_core.dart';
 
 import 'codegen_exception.dart';
+import 'emit/collection_emitter.dart';
 import 'emit/app_emitter.dart';
 import 'emit/model_emitter.dart';
 import 'emit/page_emitter.dart';
@@ -91,6 +92,17 @@ class LatticeGenerator {
       files['README.md'] = support.readme(project);
       files['.gitignore'] = support.gitignore();
       files['lib/debug.dart'] = support.debugChannel();
+
+      // The data layer (R19). Four files, because storage differs by platform
+      // and a conditional import is how Dart says that without a package.
+      if (project.collections.isNotEmpty) {
+        const collections = CollectionEmitter();
+        files['lib/collections.dart'] =
+            collections.collections(project, project.config);
+        files['lib/store.dart'] = collections.store();
+        files['lib/store_io.dart'] = collections.storeIo(project.config);
+        files['lib/store_web.dart'] = collections.storeWeb(project.config);
+      }
       files['distribute_options.yaml'] = support.distributeOptions(project);
       files['.github/workflows/build.yml'] = support.ciWorkflow(project);
       files['.github/workflows/release.yml'] = support.releaseWorkflow(project);

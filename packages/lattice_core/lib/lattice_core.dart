@@ -20,6 +20,7 @@ export 'src/model/prefab.dart';
 export 'src/model/project.dart';
 export 'src/model/server_function.dart';
 export 'src/model/widget_unit.dart';
+export 'src/model/collection.dart';
 export 'src/model/custom_node.dart';
 export 'src/model/starter.dart';
 export 'src/text/lat_reader.dart';

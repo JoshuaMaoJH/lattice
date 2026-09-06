@@ -1,0 +1,7 @@
+{
+  "name": "Note",
+  "fields": {
+    "text": "String",
+    "done": "bool"
+  }
+}

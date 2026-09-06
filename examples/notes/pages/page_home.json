@@ -1,0 +1,314 @@
+{
+  "id": "page_home",
+  "name": "Home",
+  "route": "/",
+  "isHome": true,
+  "hierarchy": {
+    "id": "w_root",
+    "type": "Scaffold",
+    "props": {
+      "appBar": {
+        "id": "w_bar",
+        "type": "AppBar",
+        "props": {
+          "title": {
+            "id": "w_title",
+            "type": "Text",
+            "props": {
+              "data": "Notes"
+            }
+          }
+        }
+      }
+    },
+    "children": [
+      {
+        "id": "w_col",
+        "type": "Column",
+        "children": [
+          {
+            "id": "w_field",
+            "type": "TextField",
+            "props": {
+              "hintText": "Write a note",
+              "onChanged": {
+                "$event": "ev_typed"
+              },
+              "text": {
+                "$bind": "n_draft.value"
+              }
+            }
+          },
+          {
+            "id": "w_add",
+            "type": "ElevatedButton",
+            "props": {
+              "onPressed": {
+                "$event": "ev_add"
+              }
+            },
+            "children": [
+              {
+                "id": "w_add_label",
+                "type": "Text",
+                "props": {
+                  "data": "Add"
+                }
+              }
+            ]
+          },
+          {
+            "id": "w_count",
+            "type": "Text",
+            "props": {
+              "data": {
+                "$bind": "n_countText.out"
+              }
+            }
+          },
+          {
+            "id": "w_list",
+            "type": "Expanded",
+            "children": [
+              {
+                "id": "w_lv",
+                "type": "ListView",
+                "children": [
+                  {
+                    "id": "w_each",
+                    "type": "ForEach",
+                    "props": {
+                      "itemKey": "text",
+                      "items": {
+                        "$bind": "n_notes.items"
+                      }
+                    },
+                    "children": [
+                      {
+                        "id": "w_tile",
+                        "type": "ListTile",
+                        "props": {
+                          "onTap": {
+                            "$event": "ev_remove"
+                          },
+                          "title": {
+                            "id": "w_tile_text",
+                            "type": "Text",
+                            "props": {
+                              "data": {
+                                "$bind": "n_itemText.out"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "dartType": "String",
+        "id": "n_draft",
+        "init": "",
+        "name": "draft",
+        "type": "Signal"
+      },
+      {
+        "collection": "notes",
+        "id": "n_notes",
+        "type": "CollectionItems"
+      },
+      {
+        "forEach": "w_each",
+        "id": "n_item",
+        "type": "ForEachItem"
+      },
+      {
+        "dartType": "String",
+        "expr": "note.text",
+        "id": "n_itemText",
+        "inputs": {
+          "note": "Note"
+        },
+        "name": "noteLabel",
+        "type": "Computed"
+      },
+      {
+        "dartType": "String",
+        "expr": "'${notes.length} note(s)'",
+        "id": "n_countText",
+        "inputs": {
+          "notes": "List<Note>"
+        },
+        "name": "noteCount",
+        "type": "Computed"
+      },
+      {
+        "dartType": "Note",
+        "expr": "Note(text: text, done: false)",
+        "id": "n_newNote",
+        "inputs": {
+          "text": "String"
+        },
+        "name": "newNote",
+        "type": "Computed"
+      },
+      {
+        "event": "onChanged",
+        "id": "ev_typed",
+        "type": "Event",
+        "widget": "w_field"
+      },
+      {
+        "id": "a_setDraft",
+        "signal": "n_draft",
+        "type": "SetSignal"
+      },
+      {
+        "event": "onPressed",
+        "id": "ev_add",
+        "type": "Event",
+        "widget": "w_add"
+      },
+      {
+        "collection": "notes",
+        "id": "a_add",
+        "type": "CollectionAdd"
+      },
+      {
+        "id": "a_clearDraft",
+        "signal": "n_draft",
+        "type": "SetSignal"
+      },
+      {
+        "dartType": "String",
+        "id": "c_empty",
+        "type": "Const",
+        "value": ""
+      },
+      {
+        "event": "onTap",
+        "id": "ev_remove",
+        "type": "Event",
+        "widget": "w_tile"
+      },
+      {
+        "collection": "notes",
+        "id": "a_remove",
+        "type": "CollectionRemoveAt"
+      }
+    ],
+    "edges": [
+      {
+        "from": "n_notes.items",
+        "to": "n_countText.notes"
+      },
+      {
+        "from": "n_item.item",
+        "to": "n_itemText.note"
+      },
+      {
+        "from": "ev_typed.payload",
+        "to": "a_setDraft.value"
+      },
+      {
+        "from": "ev_typed.fire",
+        "to": "a_setDraft.exec"
+      },
+      {
+        "from": "n_draft.value",
+        "to": "n_newNote.text"
+      },
+      {
+        "from": "ev_add.fire",
+        "to": "a_add.exec"
+      },
+      {
+        "from": "n_newNote.out",
+        "to": "a_add.item"
+      },
+      {
+        "from": "a_add.next",
+        "to": "a_clearDraft.exec"
+      },
+      {
+        "from": "c_empty.value",
+        "to": "a_clearDraft.value"
+      },
+      {
+        "from": "ev_remove.fire",
+        "to": "a_remove.exec"
+      },
+      {
+        "from": "n_item.index",
+        "to": "a_remove.index"
+      }
+    ]
+  },
+  "layout": {
+    "a_add": [
+      340.0,
+      540.0
+    ],
+    "a_clearDraft": [
+      600.0,
+      540.0
+    ],
+    "a_remove": [
+      340.0,
+      700.0
+    ],
+    "a_setDraft": [
+      340.0,
+      440.0
+    ],
+    "c_empty": [
+      600.0,
+      640.0
+    ],
+    "ev_add": [
+      80.0,
+      540.0
+    ],
+    "ev_remove": [
+      80.0,
+      700.0
+    ],
+    "ev_typed": [
+      80.0,
+      440.0
+    ],
+    "n_countText": [
+      340.0,
+      180.0
+    ],
+    "n_draft": [
+      80.0,
+      60.0
+    ],
+    "n_item": [
+      80.0,
+      300.0
+    ],
+    "n_itemText": [
+      340.0,
+      300.0
+    ],
+    "n_newNote": [
+      340.0,
+      60.0
+    ],
+    "n_notes": [
+      80.0,
+      180.0
+    ]
+  }
+}

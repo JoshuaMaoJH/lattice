@@ -156,6 +156,17 @@ final class NodeContext {
     return null;
   }
 
+  /// What one entry of the collection a node names is (R19).
+  ///
+  /// `dynamic` when the collection is unknown, so an unfinished graph shows
+  /// grey pins rather than throwing while the user is still wiring it up.
+  LatticeType collectionElement(GraphNode node) {
+    final name = node.get<String>('collection');
+    final collection = name == null ? null : project?.collection(name);
+    if (collection == null) return PrimitiveType.dynamic_;
+    return ModelType(collection.element);
+  }
+
   /// Resolves a type spelling in the context of this project's models.
   LatticeType resolve(String? spec,
       {LatticeType fallback = PrimitiveType.dynamic_}) {

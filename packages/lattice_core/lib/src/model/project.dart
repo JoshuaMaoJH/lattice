@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 
+import 'collection.dart';
 import 'custom_node.dart';
 import 'data_model.dart';
 import 'json_utils.dart';
@@ -175,11 +176,13 @@ final class Project {
     List<Prefab>? prefabs,
     List<ServerFunction>? serverFunctions,
     List<CustomNodeDef>? customNodes,
+    List<CollectionDef>? collections,
   })  : pages = List.unmodifiable(pages ?? const []),
         models = List.unmodifiable(models ?? const []),
         prefabs = List.unmodifiable(prefabs ?? const []),
         serverFunctions = List.unmodifiable(serverFunctions ?? const []),
-        customNodes = List.unmodifiable(customNodes ?? const []);
+        customNodes = List.unmodifiable(customNodes ?? const []),
+        collections = List.unmodifiable(collections ?? const []);
 
   final String id;
   final ProjectConfig config;
@@ -192,6 +195,12 @@ final class Project {
 
   /// Subgraphs that run on the server (§7.7, R17).
   final List<ServerFunction> serverFunctions;
+
+  /// Persisted typed lists (R19).
+  final List<CollectionDef> collections;
+
+  CollectionDef? collection(String name) =>
+      collections.firstWhereOrNull((c) => c.name == name);
 
   /// Node kinds this project defines for itself (R20). They go through the
   /// same schema, validator and lowering as the built-in library.
@@ -230,6 +239,13 @@ final class Project {
         prefabs: prefabs,
         serverFunctions: serverFunctions,
         customNodes: customNodes,
+        collections: [
+          for (final (i, raw) in json.arrOrEmpty('collections', path).indexed)
+            CollectionDef.fromJson(
+              asObj(raw, '$path.collections[$i]'),
+              '$path.collections[$i]',
+            ),
+        ],
       );
 
   Map<String, Object?> toManifestJson() => {
@@ -238,6 +254,10 @@ final class Project {
         'pages': [for (final p in pages) p.id],
         'prefabs': [for (final p in prefabs) p.id],
         'server': [for (final f in serverFunctions) f.id],
+        // Collections are a handful of declarations, so unlike pages they
+        // live in the manifest rather than in a file each.
+        if (collections.isNotEmpty)
+          'collections': [for (final c in collections) c.toJson()],
       };
 
   /// The whole project as one JSON object.
@@ -254,6 +274,7 @@ final class Project {
         'prefabs': [for (final p in prefabs) p.toJson()],
         'server': [for (final f in serverFunctions) f.toJson()],
         'nodes': [for (final n in customNodes) n.toJson()],
+        'collections': [for (final c in collections) c.toJson()],
       });
 
   factory Project.fromBundleJson(
@@ -265,6 +286,7 @@ final class Project {
     final rawPrefabs = json.arrOrEmpty('prefabs', path);
     final rawServer = json.arrOrEmpty('server', path);
     final rawNodes = json.arrOrEmpty('nodes', path);
+    final rawCollections = json.arrOrEmpty('collections', path);
     return Project(
       id: json.strOr('id', 'project'),
       config: ProjectConfig.fromJson(
@@ -290,6 +312,13 @@ final class Project {
           ServerFunction.fromJson(
             asObj(rawServer[i], '$path.server[$i]'),
             path: '$path.server[$i]',
+          ),
+      ],
+      collections: [
+        for (var i = 0; i < rawCollections.length; i++)
+          CollectionDef.fromJson(
+            asObj(rawCollections[i], '$path.collections[$i]'),
+            '$path.collections[$i]',
           ),
       ],
       customNodes: [
@@ -330,6 +359,7 @@ final class Project {
     List<Prefab>? prefabs,
     List<ServerFunction>? serverFunctions,
     List<CustomNodeDef>? customNodes,
+    List<CollectionDef>? collections,
   }) =>
       Project(
         id: id,
@@ -339,6 +369,7 @@ final class Project {
         prefabs: prefabs ?? this.prefabs,
         serverFunctions: serverFunctions ?? this.serverFunctions,
         customNodes: customNodes ?? this.customNodes,
+        collections: collections ?? this.collections,
       );
 
   /// Replaces one page in place, keeping declaration order.
