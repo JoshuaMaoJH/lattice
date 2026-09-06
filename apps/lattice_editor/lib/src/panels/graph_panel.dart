@@ -7,6 +7,8 @@ import '../graph/graph_painters.dart';
 import '../graph/node_layout.dart';
 import '../host/debug_channel.dart';
 import '../state/editor_controller.dart';
+import '../state/ids.dart';
+import '../state/node_clipboard.dart';
 import '../state/project_edits.dart';
 import '../theme.dart';
 import '../widgets/chrome.dart';
@@ -104,8 +106,14 @@ class _GraphPanelState extends State<GraphPanel> {
         ),
         ToolButton(
           icon: Icons.delete_outline,
-          tooltip: 'Delete the selected node',
-          onPressed: _selectedNodeId == null ? null : _deleteSelected,
+          tooltip: 'Delete the selection  (Del)',
+          onPressed: controller.selectedNodes.isEmpty ? null : _deleteSelected,
+        ),
+        ToolButton(
+          icon: Icons.folder_zip_outlined,
+          tooltip: 'Fold the selection into a Subgraph',
+          onPressed:
+              controller.selectedNodes.length < 2 ? null : _foldSelection,
         ),
         ToolButton(
           icon: Icons.center_focus_weak,
@@ -175,9 +183,35 @@ class _GraphPanelState extends State<GraphPanel> {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: _clearSelection,
+            // Drag on empty canvas is a marquee. It only starts here, so it
+            // never competes with dragging a node.
+            onPanStart: (details) => setState(() => _marquee = Rect.fromPoints(
+                  details.localPosition,
+                  details.localPosition,
+                )),
+            onPanUpdate: (details) {
+              final start = _marquee;
+              if (start == null) return;
+              setState(() => _marquee =
+                  Rect.fromPoints(start.topLeft, details.localPosition));
+            },
+            onPanEnd: (_) => _finishMarquee(rects),
+            onPanCancel: () => setState(() => _marquee = null),
             child: CustomPaint(painter: LatticePainter(scale: _scale)),
           ),
         ),
+        if (_marquee != null)
+          Positioned.fromRect(
+            rect: _marquee!,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: LatticeTheme.selectionFill.withValues(alpha: 0.25),
+                  border: Border.all(color: LatticeTheme.selectionEdge),
+                ),
+              ),
+            ),
+          ),
         // Expanded folds and comments are regions: behind the edges, so a
         // group reads as a backdrop rather than as something in the way.
         for (final node in unit.graph.nodes)
@@ -189,7 +223,7 @@ class _GraphPanelState extends State<GraphPanel> {
                 controller: controller,
                 node: node,
                 size: _expandedFoldSize(unit, node, rects),
-                isSelected: _selectedNodeId == node.id,
+                isSelected: controller.isNodeSelected(node.id),
                 onDrag: (delta) => _moveFold(unit, node, delta),
                 onToggle: () => _toggleFold(node),
               ),
@@ -203,7 +237,7 @@ class _GraphPanelState extends State<GraphPanel> {
                 controller: controller,
                 node: node,
                 size: rects[node.id]!.size,
-                isSelected: _selectedNodeId == node.id,
+                isSelected: controller.isNodeSelected(node.id),
                 onDrag: (delta) => _moveNode(node.id, delta),
                 onResize: (delta) => _resizeComment(node, delta),
               ),
@@ -227,7 +261,7 @@ class _GraphPanelState extends State<GraphPanel> {
                 controller: controller,
                 node: node,
                 slots: slots[node.id]!,
-                isSelected: _selectedNodeId == node.id,
+                isSelected: controller.isNodeSelected(node.id),
                 onDrag: (delta) => _moveNode(node.id, delta),
                 onPinTap: _onPinTap,
               ),
@@ -241,7 +275,7 @@ class _GraphPanelState extends State<GraphPanel> {
                 controller: controller,
                 node: node,
                 ports: folds.portsOf(node.id),
-                isSelected: _selectedNodeId == node.id,
+                isSelected: controller.isNodeSelected(node.id),
                 onDrag: (delta) => _moveNode(node.id, delta),
                 onToggle: () => _toggleFold(node),
               ),
@@ -258,7 +292,7 @@ class _GraphPanelState extends State<GraphPanel> {
                 controller: controller,
                 node: node,
                 slots: slots[node.id]!,
-                isSelected: _selectedNodeId == node.id,
+                isSelected: controller.isNodeSelected(node.id),
                 highlightedPins: _compatiblePins(slots[node.id]!),
                 onDrag: (delta) => _moveNode(node.id, delta),
                 onLinkStart: (slot, position) => setState(() {
@@ -472,10 +506,25 @@ class _GraphPanelState extends State<GraphPanel> {
   // Interaction
   // ---------------------------------------------------------------------------
 
-  String? get _selectedNodeId => switch (controller.selection) {
-        NodeSelection(:final nodeId) => nodeId,
-        _ => null,
-      };
+  /// Survives a paste so the same copy can be pasted repeatedly, and is not
+  /// the system clipboard: copying a subgraph is not copying text.
+  NodeClipboard? _clipboard;
+
+  /// The rubber band, in canvas coordinates, while a drag is in progress.
+  Rect? _marquee;
+
+  /// Selects everything the band touched. Intersection rather than
+  /// containment: having to fully enclose a wide node to catch it is the kind
+  /// of precision nobody wants from a rubber band.
+  void _finishMarquee(Map<String, Rect> rects) {
+    final band = _marquee;
+    setState(() => _marquee = null);
+    if (band == null || band.width < 4 && band.height < 4) return;
+    controller.selectNodes({
+      for (final entry in rects.entries)
+        if (entry.value.overlaps(band)) entry.key,
+    });
+  }
 
   void _moveNode(String nodeId, Offset delta) {
     final unit = controller.activeUnit;
@@ -619,24 +668,138 @@ class _GraphPanelState extends State<GraphPanel> {
     }
     if (event.logicalKey == LogicalKeyboardKey.delete ||
         event.logicalKey == LogicalKeyboardKey.backspace) {
-      if (_selectedNodeId != null) {
+      if (controller.selectedNodes.isNotEmpty) {
         _deleteSelected();
         return KeyEventResult.handled;
+      }
+    }
+    final control = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (control) {
+      switch (event.logicalKey) {
+        case LogicalKeyboardKey.keyC:
+          _copySelected();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyV:
+          _paste();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyD:
+          _copySelected();
+          _paste();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.keyA:
+          controller.selectNodes(
+            {for (final node in controller.activeUnit.graph.nodes) node.id},
+          );
+          return KeyEventResult.handled;
       }
     }
     return KeyEventResult.ignored;
   }
 
   void _deleteSelected() {
-    final id = _selectedNodeId;
-    if (id == null) return;
+    final ids = controller.selectedNodes;
+    if (ids.isEmpty) return;
     controller
       ..apply(
-        'Delete $id',
+        ids.length == 1 ? 'Delete ${ids.first}' : 'Delete ${ids.length} nodes',
         (project) =>
-            ProjectEdits.removeNode(project, controller.activeUnitId, id),
+            ProjectEdits.removeNodes(project, controller.activeUnitId, ids),
       )
       ..select(const NoSelection());
+  }
+
+  /// Wraps the selected nodes in a `Subgraph` (R14).
+  ///
+  /// The members used to be typed into the Inspector as a comma-separated list
+  /// of ids — an interaction nobody wants twice. Selecting on the canvas is
+  /// how a person says "these ones".
+  void _foldSelection() {
+    final ids = controller.selectedNodes;
+    if (ids.length < 2) return;
+
+    final unit = controller.activeUnit;
+    final positions = [
+      for (final id in ids)
+        if (unit.layout[id] != null) unit.layout[id]!,
+    ];
+    // Placed above the group it folds, so expanding it does not jump.
+    final left = positions
+        .map((p) => p.x)
+        .fold<double>(double.infinity, (a, b) => a < b ? a : b);
+    final top = positions
+        .map((p) => p.y)
+        .fold<double>(double.infinity, (a, b) => a < b ? a : b);
+
+    final foldId = Ids.forNode(unit, 'Subgraph');
+    controller
+      ..apply(
+        'Fold ${ids.length} nodes',
+        (project) => ProjectEdits.addNodes(
+          project,
+          controller.activeUnitId,
+          [
+            GraphNode(
+              id: foldId,
+              type: 'Subgraph',
+              config: {
+                'name': 'Group',
+                'members': ids.toList(),
+                'collapsed': true,
+              },
+            ),
+          ],
+          const [],
+          {
+            foldId: CanvasPos(
+              positions.isEmpty ? 80 : left,
+              positions.isEmpty ? 80 : top - 80,
+            ),
+          },
+        ),
+      )
+      ..select(NodeSelection(foldId));
+  }
+
+  void _copySelected() {
+    final ids = controller.selectedNodes;
+    if (ids.isEmpty) return;
+    setState(() {
+      _clipboard = NodeClipboard.copyFrom(controller.activeUnit, ids);
+    });
+  }
+
+  void _paste() {
+    final clipboard = _clipboard;
+    if (clipboard == null || clipboard.isEmpty) return;
+
+    // Offset from the originals rather than dropped in the viewport centre:
+    // a duplicate that lands exactly on top of its source looks like nothing
+    // happened.
+    final origin = controller.activeUnit.layout[clipboard.offsets.keys.first];
+    final at = NodeLayout.snap(Offset(
+      (origin?.x ?? 80) + NodeLayout.width * 0.4,
+      (origin?.y ?? 80) + 40,
+    ));
+
+    final pasted = clipboard.paste(
+      controller.activeUnit,
+      CanvasPos(at.dx, at.dy),
+    );
+    controller
+      ..apply(
+        pasted.nodes.length == 1
+            ? 'Paste ${pasted.nodes.first.type}'
+            : 'Paste ${pasted.nodes.length} nodes',
+        (project) => ProjectEdits.addNodes(
+          project,
+          controller.activeUnitId,
+          pasted.nodes,
+          pasted.edges,
+          pasted.layout,
+        ),
+      )
+      ..selectNodes({for (final node in pasted.nodes) node.id});
   }
 
   Future<void> _showNodePicker() async {
@@ -791,7 +954,16 @@ class _NodeCardState extends State<_NodeCard> {
   Widget _header(NodeSchema? schema, List<Diagnostic> problems) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => widget.controller.select(NodeSelection(widget.node.id)),
+      onTap: () {
+        // Ctrl / Cmd adds to the set; a plain tap replaces it.
+        if (HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed ||
+            HardwareKeyboard.instance.isShiftPressed) {
+          widget.controller.toggleNode(widget.node.id);
+        } else {
+          widget.controller.select(NodeSelection(widget.node.id));
+        }
+      },
       onPanUpdate: (details) => widget.onDrag(details.delta),
       child: MouseRegion(
         cursor: SystemMouseCursors.move,

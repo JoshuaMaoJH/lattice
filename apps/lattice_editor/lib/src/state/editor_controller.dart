@@ -155,15 +155,60 @@ class EditorController extends ChangeNotifier {
     _invalidate();
   }
 
+  /// The nodes the canvas is acting on.
+  ///
+  /// Separate from [selection], which the Inspector uses and which is always
+  /// one thing — editing the properties of six nodes at once is a different
+  /// feature with its own questions. This is the set that copy, delete and
+  /// fold operate on.
+  final Set<String> _selectedNodes = {};
+
+  Set<String> get selectedNodes => Set.unmodifiable(_selectedNodes);
+
+  bool isNodeSelected(String nodeId) => _selectedNodes.contains(nodeId);
+
   void select(Selection selection) {
-    if (_selection == selection) return;
+    _selectedNodes
+      ..clear()
+      ..addAll(switch (selection) {
+        NodeSelection(:final nodeId) => {nodeId},
+        _ => const <String>{},
+      });
+    if (_selection == selection) {
+      notifyListeners();
+      return;
+    }
     _selection = selection;
+    notifyListeners();
+  }
+
+  /// Adds or removes one node, leaving the rest of the set alone.
+  void toggleNode(String nodeId) {
+    if (!_selectedNodes.remove(nodeId)) _selectedNodes.add(nodeId);
+    // The Inspector follows the most recent addition, and empties when the
+    // last one goes.
+    _selection = _selectedNodes.contains(nodeId)
+        ? NodeSelection(nodeId)
+        : _selectedNodes.isEmpty
+            ? const NoSelection()
+            : NodeSelection(_selectedNodes.last);
+    notifyListeners();
+  }
+
+  /// Replaces the set outright — what a marquee does when it is released.
+  void selectNodes(Set<String> nodeIds) {
+    _selectedNodes
+      ..clear()
+      ..addAll(nodeIds);
+    _selection =
+        nodeIds.isEmpty ? const NoSelection() : NodeSelection(nodeIds.last);
     notifyListeners();
   }
 
   void openUnit(String unitId) {
     if (_activeUnitId == unitId) return;
     _activeUnitId = unitId;
+    _selectedNodes.clear();
     _selection = const NoSelection();
     notifyListeners();
   }

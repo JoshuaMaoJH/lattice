@@ -221,18 +221,56 @@ class ProjectEdits {
         _ => const {},
       };
 
-  static Project removeNode(Project project, String unitId, String nodeId) {
-    final unit = ProjectEdits.unit(project, unitId);
-    if (unit == null) return project;
+  static Project removeNode(Project project, String unitId, String nodeId) =>
+      removeNodes(project, unitId, {nodeId});
 
-    final layout = {...unit.layout}..remove(nodeId);
-    final withoutNode = replaceUnit(
+  /// Removes several nodes as one edit, so undo puts them all back together.
+  static Project removeNodes(
+    Project project,
+    String unitId,
+    Set<String> nodeIds,
+  ) {
+    final unit = ProjectEdits.unit(project, unitId);
+    if (unit == null || nodeIds.isEmpty) return project;
+
+    final layout = {...unit.layout}..removeWhere((k, _) => nodeIds.contains(k));
+    final withoutNodes = replaceUnit(
       project,
-      _withLayout(_withGraph(unit, _removeNodes(unit.graph, {nodeId})), layout),
+      _withLayout(_withGraph(unit, _removeNodes(unit.graph, nodeIds)), layout),
     );
     // A binding to a pin that no longer exists would be an error the user did
     // not make, so it goes with the node.
-    return _clearBindingsTo(withoutNode, unitId, {nodeId});
+    return _clearBindingsTo(withoutNodes, unitId, nodeIds);
+  }
+
+  /// Adds [nodes] with their [layout] and the [edges] among them, as one edit.
+  ///
+  /// The paste half of copy/paste. Callers give already-unique ids; this does
+  /// not rename, because the caller is the one that knows what the copy is
+  /// *of* and can keep a mapping.
+  static Project addNodes(
+    Project project,
+    String unitId,
+    List<GraphNode> nodes,
+    List<Edge> edges,
+    Map<String, CanvasPos> layout,
+  ) {
+    final unit = ProjectEdits.unit(project, unitId);
+    if (unit == null || nodes.isEmpty) return project;
+
+    return replaceUnit(
+      project,
+      _withLayout(
+        _withGraph(
+          unit,
+          Graph(
+            nodes: [...unit.graph.nodes, ...nodes],
+            edges: [...unit.graph.edges, ...edges],
+          ),
+        ),
+        {...unit.layout, ...layout},
+      ),
+    );
   }
 
   static Graph _removeNodes(Graph graph, Set<String> nodeIds) {

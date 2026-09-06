@@ -34,6 +34,11 @@ class Ids {
         {for (final unit in project.units) unit.id},
       );
 
+  /// The same uniquing the editor uses when it creates a node, exposed so a
+  /// paste can re-id a whole copied set against the ids already in the unit.
+  static String unique(String preferred, Set<String> taken) =>
+      _unique(preferred, taken);
+
   static String _unique(String preferred, Set<String> taken) {
     if (!taken.contains(preferred)) return preferred;
     var counter = 2;
