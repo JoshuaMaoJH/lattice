@@ -34,13 +34,26 @@ final class WidgetLookup {
   bool isPrefab(String type) =>
       !WidgetRegistry.isKnown(type) && _prefabs.containsKey(type);
 
+  /// What a prefab parameter *is*, read off its declared type (R9).
+  ///
+  /// No separate `kind` field in the JSON: `Widget` already means "a subtree
+  /// goes here" and `Event` already means "the host hands me something to
+  /// call". Adding a second place to say the same thing invites the two to
+  /// disagree.
+  static ParamKind kindOf(LatticeType type) => switch (type) {
+        WidgetType() => ParamKind.widget,
+        ListType(element: WidgetType()) => ParamKind.widgetList,
+        EventType() => ParamKind.callback,
+        NullableType(inner: WidgetType()) => ParamKind.widget,
+        NullableType(inner: EventType()) => ParamKind.callback,
+        _ => ParamKind.value,
+      };
+
   /// The schema a prefab presents to the rest of the compiler.
   static WidgetSchema schemaFor(Prefab prefab) => WidgetSchema(
         type: prefab.name,
         category: WidgetCategory.structure,
         summary: 'Prefab ${prefab.id}.',
-        // v1 prefabs take values, not children or callbacks; a prefab that
-        // needs to call back out to its host is a separate design problem.
         // A prefab with no state of its own gets a const constructor, so
         // placing one costs nothing at run time.
         constCtor: !prefab.isStateful,
@@ -49,9 +62,14 @@ final class WidgetLookup {
             ParamSchema(
               name: parameter.name,
               type: parameter.type,
+              kind: kindOf(parameter.type),
               required: parameter.defaultValue == null &&
-                  parameter.type is! NullableType,
+                  parameter.type is! NullableType &&
+                  kindOf(parameter.type) != ParamKind.callback,
               defaultValue: parameter.defaultValue,
+              // A slot takes a subtree and a callback takes an event edge;
+              // neither is a value the graph can bind a signal to.
+              bindable: kindOf(parameter.type) == ParamKind.value,
             ),
         ],
       );

@@ -147,7 +147,7 @@ final class Page implements WidgetUnit {
         'name': name,
         'route': route,
         if (isHome) 'isHome': true,
-        'params': {for (final p in parameters) p.name: p.type.dartName},
+        'params': {for (final p in parameters) p.name: p.type.spelling},
         'paramDefaults': {
           for (final p in parameters)
             if (p.defaultValue != null) p.name: p.defaultValue,

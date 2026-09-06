@@ -957,6 +957,21 @@ class _PageLowering {
       case 'CallServer':
         return _lowerCallServer(action);
 
+      case 'InvokeCallback':
+        final name = action.get<String>('name');
+        final parameter = name == null ? null : unit.parameter(name);
+        if (parameter == null || parameter.type is! EventType) {
+          throw CodegenException(
+            'InvokeCallback "${action.id}" names no Event parameter of this '
+            '${unit.id}.',
+            pageId: unit.id,
+            nodeId: action.id,
+          );
+        }
+        // `?.call()` because the parameter is optional: a host that does not
+        // care about this event simply does not pass one.
+        return [Code('${isStateful ? 'widget.' : ''}$name?.call();')];
+
       case 'ShowDialog':
         // Awaited, so a chain that continues after it continues after the
         // dialog closes rather than racing it.
@@ -1239,6 +1254,23 @@ class _PageLowering {
   // Widget tree
   // ---------------------------------------------------------------------------
 
+  /// A `Slot` inside a prefab (R9).
+  Emitted _lowerSlot(WidgetNode widget) {
+    final prop = widget.props['name'];
+    final name = prop is LiteralProp ? prop.value as String? : null;
+    final parameter = name == null ? null : unit.parameter(name);
+    if (parameter == null) {
+      throw CodegenException(
+        'Slot "${widget.id}" names no parameter of this ${unit.id}.',
+        pageId: unit.id,
+        widgetId: widget.id,
+      );
+    }
+    return Emitted.plain(
+      isStateful ? refer('widget').property(name!) : refer(name!),
+    );
+  }
+
   Emitted _lowerWidget(WidgetNode widget, {required bool insideBoundary}) {
     final schema = widgets.lookup(widget.type);
     if (schema == null) {
@@ -1250,6 +1282,13 @@ class _PageLowering {
     }
     final prefab = project.prefab(widget.type);
     if (prefab != null) usedPrefabs.add(prefab.fileName);
+
+    if (widget.type == 'Slot') {
+      // Unlike ForEach and If, a Slot *is* an expression: it compiles to the
+      // parameter the caller filled in, the way `child` inside a hand-written
+      // widget class is just `child`.
+      return _lowerSlot(widget);
+    }
 
     if (schema.isPseudo) {
       // ForEach and If are not expressions on their own; they are expanded by

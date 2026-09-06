@@ -91,7 +91,13 @@ final class NodeContext {
     if (param == null || param.kind != ParamKind.callback) {
       return PrimitiveType.void_;
     }
-    return param.type;
+    // A built-in widget's callback param carries the payload directly
+    // (`bool` for `Checkbox.onChanged`). A prefab declares its callbacks as
+    // `Event`, so the payload is inside it — a bare `Event` carries none.
+    return switch (param.type) {
+      EventType(:final payload) => payload ?? PrimitiveType.void_,
+      final other => other,
+    };
   }
 
   /// What the server function being compiled answers with, if that is what

@@ -578,7 +578,6 @@
       <li>服务端<strong>没有部署过</strong>。生成的是零依赖 Dart 程序，扔到装了 Dart 的主机上就能跑，但这一步没验证。</li>
       <li>Windows 和 macOS 的打包<strong>只写了配置，没跑过</strong>——手上没有那两种宿主机。Linux 的 AppImage 与 <code>.deb</code>、Android 的 <code>.apk</code> 与 <code>.aab</code>、web 的 zip 都在真机上出过包。</li>
       <li>编辑器<strong>没有多选</strong>，所以折叠的成员是在属性面板里以逗号分隔的 ID 列表编辑的。</li>
-      <li>Prefab <strong>不收 children 和回调</strong>。回调意味着组件要往外发事件，那需要先想清楚它的形状。</li>
       <li>ForEach 模板里<strong>不能有自己的状态</strong>。每项一份的状态需要先解决身份问题，方案留了缝，还没做。</li>
       <li>图 ↔ 代码<strong>只有单向</strong>。反向同步的锚点（节点 ID 注释）已经在了，但没实现。</li>
     </ul>

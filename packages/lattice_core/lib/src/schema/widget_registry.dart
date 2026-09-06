@@ -506,6 +506,18 @@ class WidgetRegistry {
       params: [_callback('onTap')],
     ),
 
+    // Where a prefab puts the subtree its caller handed over (R9).
+    //
+    // Not a Flutter widget: it compiles to the parameter itself, the way
+    // `child` inside a hand-written widget class is just `child`.
+    WidgetSchema(
+      type: 'Slot',
+      category: WidgetCategory.structure,
+      isPseudo: true,
+      summary: 'The subtree this prefab was given, by parameter name.',
+      params: [_v('name', _string, req: true, bind: false)],
+    ),
+
     // ---- navigation shell -------------------------------------------------
     // Scaffold grew a `bottomNavigationBar` slot to go with `drawer`; what
     // was missing either way was anything to put in them.

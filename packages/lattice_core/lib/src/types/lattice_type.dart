@@ -25,8 +25,13 @@ enum TypeFamily {
 sealed class LatticeType {
   const LatticeType();
 
-  /// The Dart source spelling, e.g. `List<String>?`.
+  /// The Dart source spelling, e.g. `List<String>?`. This is what lands in
+  /// generated code, so it has to be a type Dart knows.
   String get dartName;
+
+  /// How the type is written in a project file. The same as [dartName] for
+  /// everything except `Event`, whose Dart form is a function type.
+  String get spelling => dartName;
 
   TypeFamily get family;
 
@@ -285,8 +290,16 @@ final class EventType extends LatticeType {
 
   final LatticeType? payload;
 
+  /// `Event` is Lattice's word for it; Dart's word is a function type, and
+  /// this is the name that has to compile. A prefab parameter declared
+  /// `Event` becomes a `VoidCallback` field on the generated widget.
   @override
   String get dartName =>
+      payload == null ? 'VoidCallback' : 'void Function(${payload!.dartName})';
+
+  /// What a person writes in `params`, and what round-trips through JSON.
+  @override
+  String get spelling =>
       payload == null ? 'Event' : 'Event<${payload!.dartName}>';
 
   @override

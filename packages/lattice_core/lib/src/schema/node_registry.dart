@@ -474,6 +474,14 @@ class NodeRegistry {
     ),
 
     NodeSchema.fixed(
+      type: 'InvokeCallback',
+      category: NodeCategory.action,
+      summary: 'Fires one of this prefab\'s Event parameters back at its host.',
+      configKeys: const ['name'],
+      inputs: [_exec],
+      outputs: [_next],
+    ),
+    NodeSchema.fixed(
       type: 'ShowDialog',
       category: NodeCategory.action,
       summary: 'A modal alert with a title, a message and one dismiss button.',

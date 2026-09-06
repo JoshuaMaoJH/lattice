@@ -146,7 +146,11 @@ class PageEmitter {
                   ..name = parameter.name
                   ..named = true
                   ..toThis = true
-                  ..required = parameter.defaultValue == null &&
+                  // A callback the host may or may not care about: a prefab
+                  // that fires `onTap` into nothing is a normal prefab, so
+                  // these are optional and the field is nullable.
+                  ..required = parameter.type is! EventType &&
+                      parameter.defaultValue == null &&
                       parameter.type is! NullableType
                   // A non-nullable optional parameter is only legal with a
                   // default, so the declared default is emitted here too.
@@ -166,7 +170,13 @@ class PageEmitter {
             (f) => f
               ..name = parameter.name
               ..modifier = FieldModifier.final$
-              ..type = refer(parameter.type.dartName),
+              // Nullable, matching the optional constructor parameter: the
+              // call site is `onTap?.call()`.
+              ..type = refer(
+                parameter.type is EventType
+                    ? '${parameter.type.dartName}?'
+                    : parameter.type.dartName,
+              ),
           ),
       ];
 

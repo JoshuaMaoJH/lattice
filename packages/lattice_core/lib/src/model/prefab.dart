@@ -100,7 +100,7 @@ final class Prefab implements WidgetUnit {
   Map<String, Object?> toJson() => pruneEmpty({
         'id': id,
         'name': name,
-        'params': {for (final p in parameters) p.name: p.type.dartName},
+        'params': {for (final p in parameters) p.name: p.type.spelling},
         'paramDefaults': {
           for (final p in parameters)
             if (p.defaultValue != null) p.name: p.defaultValue,

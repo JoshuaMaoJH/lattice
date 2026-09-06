@@ -57,21 +57,22 @@
 
 | 节点 | 输入 | 输出 | 配置 | 说明 |
 |---|---|---|---|---|
-| `Event` | — | ▷ `fire`: Event | `widget`, `event` | Fires when a widget callback runs. |
+| `Event` | — | ▷ `fire`: VoidCallback | `widget`, `event` | Fires when a widget callback runs. |
 
 ### 动作（唯一允许副作用的地方）
 
 | 节点 | 输入 | 输出 | 配置 | 说明 |
 |---|---|---|---|---|
-| `CallServer` | ▷ `exec`: Event | ▷ `next`: Event | `function`, `signal`, `loadingSignal`, `errorSignal` | Calls a server function and writes the answer into a Signal. One input pin per parameter the function declares (§7.7). |
-| `SetSignal` | ▷ `exec`: Event<br>● `value*`: dynamic | ▷ `next`: Event | `signal` | Writes a value into a Signal. |
-| `UpdateSignal` | ▷ `exec`: Event | ▷ `next`: Event | `signal`, `fn` | Applies a pure function to a Signal's current value. |
-| `ToggleSignal` | ▷ `exec`: Event | ▷ `next`: Event | `signal` | Inverts a bool Signal. |
-| `Navigate` | ▷ `exec`: Event | ▷ `next`: Event | `route`, `replace` | Pushes or replaces a route. One input pin appears per parameter the target page declares. |
-| `HttpRequest` | ▷ `exec`: Event<br>● `url*`: String | ▷ `next`: Event | `method`, `signal`, `loadingSignal`, `errorSignal`, `decode` | Fetches a URL and decodes the body into a Signal. The handler it sits in becomes async (R13). |
-| `ShowSnackBar` | ▷ `exec`: Event<br>● `message*`: String | ▷ `next`: Event | — | Shows a snack bar on the current Scaffold. |
-| `Print` | ▷ `exec`: Event<br>● `message*`: dynamic | ▷ `next`: Event | — | debugPrint, for tracing a graph. |
-| `ShowDialog` | ▷ `exec`: Event<br>● `title*`: String<br>● `message*`: String | ▷ `next`: Event | `dismissLabel` | A modal alert with a title, a message and one dismiss button. |
+| `CallServer` | ▷ `exec`: VoidCallback | ▷ `next`: VoidCallback | `function`, `signal`, `loadingSignal`, `errorSignal` | Calls a server function and writes the answer into a Signal. One input pin per parameter the function declares (§7.7). |
+| `SetSignal` | ▷ `exec`: VoidCallback<br>● `value*`: dynamic | ▷ `next`: VoidCallback | `signal` | Writes a value into a Signal. |
+| `UpdateSignal` | ▷ `exec`: VoidCallback | ▷ `next`: VoidCallback | `signal`, `fn` | Applies a pure function to a Signal's current value. |
+| `ToggleSignal` | ▷ `exec`: VoidCallback | ▷ `next`: VoidCallback | `signal` | Inverts a bool Signal. |
+| `Navigate` | ▷ `exec`: VoidCallback | ▷ `next`: VoidCallback | `route`, `replace` | Pushes or replaces a route. One input pin appears per parameter the target page declares. |
+| `HttpRequest` | ▷ `exec`: VoidCallback<br>● `url*`: String | ▷ `next`: VoidCallback | `method`, `signal`, `loadingSignal`, `errorSignal`, `decode` | Fetches a URL and decodes the body into a Signal. The handler it sits in becomes async (R13). |
+| `ShowSnackBar` | ▷ `exec`: VoidCallback<br>● `message*`: String | ▷ `next`: VoidCallback | — | Shows a snack bar on the current Scaffold. |
+| `Print` | ▷ `exec`: VoidCallback<br>● `message*`: dynamic | ▷ `next`: VoidCallback | — | debugPrint, for tracing a graph. |
+| `InvokeCallback` | ▷ `exec`: VoidCallback | ▷ `next`: VoidCallback | `name` | Fires one of this prefab's Event parameters back at its host. |
+| `ShowDialog` | ▷ `exec`: VoidCallback<br>● `title*`: String<br>● `message*`: String | ▷ `next`: VoidCallback | `dismissLabel` | A modal alert with a title, a message and one dismiss button. |
 
 ### 控制
 
@@ -96,7 +97,7 @@
 
 ## Widget 白名单
 
-共 52 个。白名单之外的 widget 通过 
+共 53 个。白名单之外的 widget 通过 
 `Dart Code` 节点接入（§7.8）。
 
 参数标记：`*` 必填，`⚡` 可绑定到图输出，`▷` 回调（接 Event 节点），
@@ -163,6 +164,7 @@
 | `Card` | 1 → `child` | ⚡ `elevation`: double?<br>⚡ `color`: Color?<br>⚡ `margin`: EdgeInsets? | Rounded, elevated surface. |
 | `SafeArea` | 1 → `child` | — | Insets its child away from system intrusions. |
 | `SingleChildScrollView` | 1 → `child` | ⚡ `padding`: EdgeInsets? | Makes an oversized child scrollable. |
+| `Slot` | — |   `name*`: String | The subtree this prefab was given, by parameter name. |
 | `Drawer` | 1 → `child` | ⚡ `backgroundColor`: Color? | The panel that slides in from the edge. |
 | `DrawerHeader` | 1 → `child` | ⚡ `padding`: EdgeInsets? | The block at the top of a Drawer. |
 | `BottomNavigationBar` † | — | ◻… `items`: List<Widget><br>⚡ `currentIndex`: int = `0`<br>▷ `onTap`: (int)<br>⚡ `backgroundColor`: Color? | The bar of destinations along the bottom. |
