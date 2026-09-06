@@ -96,3 +96,11 @@ jobs:
 
       - name: Build the editor
         run: cd apps/lattice_editor && flutter build ${{ matrix.target }} --release
+
+      # The preview test starts a real `flutter run -d linux`, so it only has
+      # somewhere to run on the host that just installed GTK.
+      - name: Preview and hot reload (§7.6, R6)
+        if: matrix.target == 'linux'
+        env:
+          LATTICE_DESKTOP_TESTS: '1'
+        run: cd apps/lattice_editor && flutter test test/io_host_test.dart

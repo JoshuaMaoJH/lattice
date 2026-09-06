@@ -1,6 +1,3 @@
-@Tags(['desktop'])
-library;
-
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,10 +11,17 @@ import 'package:path/path.dart' as p;
 
 /// The preview link (§7.6, R6), tested against a real `flutter run`.
 ///
-/// Tagged `desktop` because it needs the Linux desktop toolchain and takes
-/// minutes; `flutter test` skips it unless asked:
+/// Off by default: it needs the Linux desktop toolchain and takes minutes.
 ///
-///     flutter test --tags desktop
+///     LATTICE_DESKTOP_TESTS=1 flutter test test/io_host_test.dart
+///
+/// A `@Tags` annotation would not have done this — a tag labels a test, it
+/// does not skip it, which is how this ran on a CI machine with no GTK and
+/// failed inside CMake.
+final _reason = Platform.environment['LATTICE_DESKTOP_TESTS'] == '1'
+    ? null
+    : 'needs the desktop toolchain — set LATTICE_DESKTOP_TESTS=1 to run';
+
 void main() {
   late Directory root;
   late IoHost host;
@@ -33,7 +37,7 @@ void main() {
     if (root.existsSync()) await root.delete(recursive: true);
   });
 
-  test('generates a project that exists on disk', () async {
+  test('generates a project that exists on disk', skip: _reason, () async {
     final output = await host.build(sampleProject(), root.path);
     expect(File(p.join(output, 'lib', 'main.dart')).existsSync(), isTrue);
     expect(
@@ -42,7 +46,8 @@ void main() {
     );
   });
 
-  test('a second build rewrites nothing when nothing changed', () async {
+  test('a second build rewrites nothing when nothing changed', skip: _reason,
+      () async {
     await host.build(sampleProject(), root.path);
     final page = File(
       p.join(root.path, '.lattice', 'build', 'lib', 'pages', 'home_page.dart'),
@@ -56,7 +61,7 @@ void main() {
     expect(page.lastModifiedSync(), before);
   });
 
-  test('an edit rewrites only the page it touched', () async {
+  test('an edit rewrites only the page it touched', skip: _reason, () async {
     await host.build(sampleProject(), root.path);
     final buildDir = p.join(root.path, '.lattice', 'build');
     final page = File(p.join(buildDir, 'lib', 'pages', 'home_page.dart'));
@@ -119,6 +124,7 @@ void main() {
       await host.stopPreview();
     },
     timeout: const Timeout(Duration(minutes: 8)),
+    skip: _reason,
   );
 }
 
