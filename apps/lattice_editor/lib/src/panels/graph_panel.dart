@@ -635,7 +635,7 @@ class _GraphPanelState extends State<GraphPanel> {
   Future<void> _showNodePicker() async {
     final type = await showDialog<String>(
       context: context,
-      builder: (context) => const _NodePicker(),
+      builder: (context) => _NodePicker(nodes: controller.nodes),
     );
     if (type == null || !mounted) return;
 
@@ -701,7 +701,7 @@ class _NodeCard extends StatefulWidget {
 class _NodeCardState extends State<_NodeCard> {
   @override
   Widget build(BuildContext context) {
-    final schema = NodeRegistry.lookup(widget.node.type);
+    final schema = widget.controller.nodes.lookup(widget.node.type);
     final problems =
         widget.controller.diagnosticsFor(nodeId: widget.node.id).toList();
     final hasError = problems.any((d) => d.isError);
@@ -972,7 +972,11 @@ class _SocketState extends State<_Socket> {
 
 /// The node library, grouped the way §7.2 groups it.
 class _NodePicker extends StatefulWidget {
-  const _NodePicker();
+  const _NodePicker({required this.nodes});
+
+  /// Built-ins plus whatever the project defines (R20) — the palette should
+  /// not be able to tell them apart.
+  final NodeLookup nodes;
 
   @override
   State<_NodePicker> createState() => _NodePickerState();
@@ -994,7 +998,7 @@ class _NodePickerState extends State<_NodePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final matches = NodeRegistry.all
+    final matches = widget.nodes.all
         .where((s) => s.type.toLowerCase().contains(_query.toLowerCase()))
         .toList();
 

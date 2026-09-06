@@ -8,10 +8,10 @@ import '../model/pin_ref.dart';
 import '../model/project.dart';
 import '../types/lattice_type.dart';
 import '../types/type_parser.dart';
-// A deliberate import cycle: resolving a pin's type needs the registry, and
-// the registry's schemas need this context. Dart resolves libraries lazily, so
-// this is well defined.
-import 'node_registry.dart';
+// A deliberate import cycle: resolving a pin's type needs the lookup, whose
+// built-ins need this context. Dart resolves libraries lazily, so this is well
+// defined.
+import 'node_lookup.dart';
 import 'pin_schema.dart';
 import 'widget_lookup.dart';
 import 'widget_schema.dart';
@@ -55,6 +55,10 @@ final class NodeContext {
 
   /// Resolves widget types against the whitelist *and* the project's prefabs.
   late final WidgetLookup widgets = WidgetLookup(project);
+
+  /// Resolves node types against the built-in library *and* the project's own
+  /// definitions (R20).
+  late final NodeLookup nodes = NodeLookup(project);
 
   /// Guards the `ForEach` -> `ForEachItem` -> `ForEach` loop that a nested
   /// repeat creates while types are being resolved.
@@ -114,7 +118,7 @@ final class NodeContext {
   LatticeType outputType(PinRef ref) {
     final node = graph.node(ref.nodeId);
     if (node == null) return PrimitiveType.dynamic_;
-    final schema = NodeRegistry.lookup(node.type);
+    final schema = nodes.lookup(node.type);
     return schema?.output(node, this, ref.pin)?.type ?? PrimitiveType.dynamic_;
   }
 

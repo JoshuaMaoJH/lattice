@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../model/custom_node.dart';
 import '../model/data_model.dart';
 import '../model/errors.dart';
 import '../model/json_utils.dart';
@@ -92,6 +93,27 @@ class ProjectIo {
       }
     }
 
+    // Project-defined nodes (R20). One file per node, same as prefabs — a
+    // node definition is something you hand-edit and diff.
+    final customNodes = <CustomNodeDef>[];
+    final nodesDir = Directory('$root/nodes');
+    if (nodesDir.existsSync()) {
+      final files = nodesDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      for (final file in files) {
+        customNodes.add(
+          CustomNodeDef.fromJson(
+            asObj(jsonDecode(await file.readAsString()), file.path),
+            file.path,
+          ),
+        );
+      }
+    }
+
     // The manifest's `pages` array fixes declaration order; anything found on
     // disk but unlisted is appended so a hand-added file is never silently
     // ignored.
@@ -130,6 +152,7 @@ class ProjectIo {
       models: models,
       prefabs: prefabs,
       serverFunctions: serverFunctions,
+      customNodes: customNodes,
     );
   }
 
@@ -160,6 +183,15 @@ class ProjectIo {
       for (final fn in project.serverFunctions) {
         await File('${serverDir.path}/${fn.id}.json')
             .writeAsString('${_encoder.convert(fn.toJson())}\n');
+      }
+    }
+
+    if (project.customNodes.isNotEmpty) {
+      final nodesDir = Directory('$root/nodes');
+      await nodesDir.create(recursive: true);
+      for (final def in project.customNodes) {
+        await File('${nodesDir.path}/${def.type}.json')
+            .writeAsString('${_encoder.convert(def.toJson())}\n');
       }
     }
 

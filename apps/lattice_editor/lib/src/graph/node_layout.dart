@@ -79,7 +79,7 @@ class NodeLayout {
     NodeContext context,
     Graph graph,
   ) {
-    final schema = NodeRegistry.lookup(node.type);
+    final schema = context.nodes.lookup(node.type);
     if (schema == null) return const [];
 
     final slots = <PinSlot>[];

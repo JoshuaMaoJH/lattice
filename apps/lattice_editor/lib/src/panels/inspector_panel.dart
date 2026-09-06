@@ -75,7 +75,7 @@ class InspectorPanel extends StatelessWidget {
     final node = unit.graph.node(nodeId);
     if (node == null) return const _Empty('That node is gone.');
 
-    final schema = NodeRegistry.lookup(node.type);
+    final schema = controller.nodes.lookup(node.type);
     final problems = controller.diagnosticsFor(nodeId: nodeId).toList();
 
     return ListView(

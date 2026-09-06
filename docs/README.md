@@ -25,5 +25,6 @@ analyze` 零诊断、全部进 CI。每个的 README 都写了它要证明什么
 | | 项目书 | 实际 | 理由 |
 |---|---|---|---|
 | 服务端框架 | dart_frog（§9） | 只依赖 `dart:io` | [ADR-012](decisions/012-plain-dart-server.md) |
+| 工程自定义节点 | 「插件化节点库」（R20） | 模板替换，不是动态加载的 Dart | [ADR-013](decisions/013-project-defined-nodes.md) |
 | Subgraph | 「可标记为 @server」（§7.7） | 纯折叠；服务端边界另立 `ServerFunction` | [ADR-011](decisions/011-folding-not-subfunctions.md) |
 | RPC 客户端归属 | `lattice_server_gen`（§6） | `lattice_codegen` | 反向会成环；`lib/rpc.dart` 是客户端工程的文件 |

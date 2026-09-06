@@ -25,6 +25,14 @@ If hasForecast(f)   → 温度 + 风速
 `urlFor` 是 `Dart Code` 节点，调用 `custom/cities.dart` 里手写的城市坐标表——
 一张表就是一张表，没必要画成节点（§7.8）。
 
+`Fahrenheit` 是这个工程**自己定义的节点**（R20，见 `nodes/Fahrenheit.json`）。
+内置库里没有单位换算，也不该有——它属于这个工程的词汇表，不属于所有工程的。
+定义完它在调色板里、在校验器眼里、在生成的代码里，都和内置节点没有区别：
+
+```dart
+'${((_temperatureCelsius(forecast.value)) * 9 / 5 + 32)} °F'
+```
+
 ## 它要证明的事
 
 1. **一条链里有 await，整个 handler 就是 async**，并且 loading / error 的

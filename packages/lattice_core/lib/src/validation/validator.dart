@@ -65,6 +65,7 @@ class Validator {
     }
 
     _validateModels(project, out);
+    _validateCustomNodes(project, out);
     _validatePrefabDeclarations(project, out);
 
     final widgets = WidgetLookup(project);
@@ -83,6 +84,86 @@ class Validator {
   }
 
   // --------------------------------------------------------------------------
+
+  /// Project-defined nodes (R20).
+  ///
+  /// A definition is source that the compiler will paste into the page, so the
+  /// checks here are the ones a `case` in the compiler gets for free: the name
+  /// is available, the pins line up with the template, and the shape matches
+  /// what the category promises.
+  void _validateCustomNodes(Project project, List<Diagnostic> out) {
+    final seen = <String>{};
+    for (final def in project.customNodes) {
+      if (!_identifier.hasMatch(def.type)) {
+        out.add(Diagnostic.error(
+          code: 'custom_node_name',
+          message: '"${def.type}" is not usable as a node type. Use a Dart '
+              'style identifier, e.g. "Clamp".',
+        ));
+        continue;
+      }
+      if (NodeRegistry.isKnown(def.type)) {
+        out.add(Diagnostic.error(
+          code: 'custom_node_shadows_builtin',
+          message: '"${def.type}" is a built-in node. Project-defined nodes '
+              'cannot replace one — pick another name.',
+        ));
+      }
+      if (!seen.add(def.type)) {
+        out.add(Diagnostic.error(
+          code: 'duplicate_custom_node',
+          message: 'Node "${def.type}" is defined more than once.',
+        ));
+      }
+      if (def.template.trim().isEmpty) {
+        out.add(Diagnostic.error(
+          code: 'custom_node_empty_template',
+          message: 'Node "${def.type}" has no template, so there is nothing '
+              'for it to compile to.',
+        ));
+      }
+
+      final inputNames = {for (final pin in def.inputs) pin.name};
+      for (final placeholder in def.placeholders) {
+        if (!inputNames.contains(placeholder)) {
+          out.add(Diagnostic.error(
+            code: 'custom_node_unknown_placeholder',
+            message: 'Node "${def.type}" writes {$placeholder} but has no '
+                'input by that name.',
+          ));
+        }
+      }
+      for (final pin in def.inputs) {
+        if (!def.placeholders.contains(pin.name)) {
+          out.add(Diagnostic.warning(
+            code: 'custom_node_unused_input',
+            message: 'Node "${def.type}" takes "${pin.name}" but never uses '
+                'it. An input nothing reads is a pin nobody can satisfy.',
+          ));
+        }
+      }
+
+      if (def.isAction) {
+        if (def.outputs.isNotEmpty) {
+          out.add(Diagnostic.error(
+            code: 'custom_node_action_outputs',
+            message: 'Action "${def.type}" declares data outputs. An action '
+                'runs for its effect; to compute something, use a compute '
+                'node.',
+          ));
+        }
+      } else if (def.outputs.length != 1) {
+        out.add(Diagnostic.error(
+          code: 'custom_node_output_count',
+          message: 'Compute node "${def.type}" has ${def.outputs.length} '
+              'outputs. A compute node is an expression, so it has exactly '
+              'one.',
+        ));
+      }
+    }
+  }
+
+  static final RegExp _identifier = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
 
   void _validateModels(Project project, List<Diagnostic> out) {
     final seen = <String>{};
@@ -295,7 +376,7 @@ class Validator {
 
     // The client's vocabulary does not exist on the other side of the wire.
     for (final node in function.graph.nodes) {
-      final schema = NodeRegistry.forNode(node);
+      final schema = ctx.nodes.forNode(node);
       final clientOnly = switch (node.type) {
         'Signal' => 'state belongs to the client',
         'Event' => 'there are no widgets here',
@@ -789,7 +870,7 @@ class Validator {
     List<Diagnostic> out,
   ) {
     for (final node in page.graph.nodes) {
-      final schema = NodeRegistry.forNode(node);
+      final schema = ctx.nodes.forNode(node);
       if (schema == null) {
         out.add(Diagnostic.error(
           code: 'unknown_node_type',
@@ -1119,9 +1200,9 @@ class Validator {
       final from = page.graph.node(edge.from.nodeId);
       final to = page.graph.node(edge.to.nodeId);
       if (from == null || to == null) continue;
-      final toSchema = NodeRegistry.forNode(to);
-      if (toSchema == null) continue;
       final ctx = NodeContext(graph: page.graph, unit: page);
+      final toSchema = ctx.nodes.forNode(to);
+      if (toSchema == null) continue;
       final pin = toSchema.input(to, ctx, edge.to.pin);
       if (pin == null || pin.kind != PinKind.data) continue;
       dependencies.putIfAbsent(to.id, () => {}).add(from.id);
@@ -1185,7 +1266,7 @@ class Validator {
       ));
       return null;
     }
-    final schema = NodeRegistry.forNode(node);
+    final schema = ctx.nodes.forNode(node);
     if (schema == null) return null;
     final outPin = schema.output(node, ctx, ref.pin);
     if (outPin == null) {
@@ -1205,7 +1286,7 @@ class Validator {
   PinKind? _outputKind(Graph graph, NodeContext ctx, PinRef ref) {
     final node = graph.node(ref.nodeId);
     if (node == null) return null;
-    return NodeRegistry.forNode(node)?.output(node, ctx, ref.pin)?.kind;
+    return ctx.nodes.forNode(node)?.output(node, ctx, ref.pin)?.kind;
   }
 
   (PinSchema, GraphNode)? _inputPin(
@@ -1225,7 +1306,7 @@ class Validator {
       ));
       return null;
     }
-    final schema = NodeRegistry.forNode(node);
+    final schema = ctx.nodes.forNode(node);
     if (schema == null) return null;
     final pin = schema.input(node, ctx, ref.pin);
     if (pin == null) {

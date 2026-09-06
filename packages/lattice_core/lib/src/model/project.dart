@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 
+import 'custom_node.dart';
 import 'data_model.dart';
 import 'json_utils.dart';
 import 'page.dart';
@@ -173,10 +174,12 @@ final class Project {
     List<DataModelDef>? models,
     List<Prefab>? prefabs,
     List<ServerFunction>? serverFunctions,
+    List<CustomNodeDef>? customNodes,
   })  : pages = List.unmodifiable(pages ?? const []),
         models = List.unmodifiable(models ?? const []),
         prefabs = List.unmodifiable(prefabs ?? const []),
-        serverFunctions = List.unmodifiable(serverFunctions ?? const []);
+        serverFunctions = List.unmodifiable(serverFunctions ?? const []),
+        customNodes = List.unmodifiable(customNodes ?? const []);
 
   final String id;
   final ProjectConfig config;
@@ -189,6 +192,10 @@ final class Project {
 
   /// Subgraphs that run on the server (§7.7, R17).
   final List<ServerFunction> serverFunctions;
+
+  /// Node kinds this project defines for itself (R20). They go through the
+  /// same schema, validator and lowering as the built-in library.
+  final List<CustomNodeDef> customNodes;
 
   /// Every unit that compiles to a widget class.
   List<WidgetUnit> get units => [...pages, ...prefabs];
@@ -209,6 +216,7 @@ final class Project {
     List<DataModelDef> models = const [],
     List<Prefab> prefabs = const [],
     List<ServerFunction> serverFunctions = const [],
+    List<CustomNodeDef> customNodes = const [],
     String path = 'project',
   }) =>
       Project(
@@ -221,6 +229,7 @@ final class Project {
         models: models,
         prefabs: prefabs,
         serverFunctions: serverFunctions,
+        customNodes: customNodes,
       );
 
   Map<String, Object?> toManifestJson() => {
@@ -244,6 +253,7 @@ final class Project {
         'pages': [for (final p in pages) p.toJson()],
         'prefabs': [for (final p in prefabs) p.toJson()],
         'server': [for (final f in serverFunctions) f.toJson()],
+        'nodes': [for (final n in customNodes) n.toJson()],
       });
 
   factory Project.fromBundleJson(
@@ -254,6 +264,7 @@ final class Project {
     final rawModels = json.arrOrEmpty('models', path);
     final rawPrefabs = json.arrOrEmpty('prefabs', path);
     final rawServer = json.arrOrEmpty('server', path);
+    final rawNodes = json.arrOrEmpty('nodes', path);
     return Project(
       id: json.strOr('id', 'project'),
       config: ProjectConfig.fromJson(
@@ -279,6 +290,13 @@ final class Project {
           ServerFunction.fromJson(
             asObj(rawServer[i], '$path.server[$i]'),
             path: '$path.server[$i]',
+          ),
+      ],
+      customNodes: [
+        for (var i = 0; i < rawNodes.length; i++)
+          CustomNodeDef.fromJson(
+            asObj(rawNodes[i], '$path.nodes[$i]'),
+            '$path.nodes[$i]',
           ),
       ],
       pages: [
@@ -311,6 +329,7 @@ final class Project {
     List<DataModelDef>? models,
     List<Prefab>? prefabs,
     List<ServerFunction>? serverFunctions,
+    List<CustomNodeDef>? customNodes,
   }) =>
       Project(
         id: id,
@@ -319,6 +338,7 @@ final class Project {
         models: models ?? this.models,
         prefabs: prefabs ?? this.prefabs,
         serverFunctions: serverFunctions ?? this.serverFunctions,
+        customNodes: customNodes ?? this.customNodes,
       );
 
   /// Replaces one page in place, keeping declaration order.

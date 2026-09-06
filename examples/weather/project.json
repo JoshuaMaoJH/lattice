@@ -6,6 +6,7 @@
     "organization": "com.example",
     "packageName": "weather_app",
     "runtime": "signals",
+    "serverUrl": "http://localhost:8080",
     "targets": [
       "linux",
       "web",
@@ -16,5 +17,7 @@
   "id": "weather",
   "pages": [
     "page_home"
-  ]
+  ],
+  "prefabs": [],
+  "server": []
 }

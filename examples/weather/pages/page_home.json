@@ -150,6 +150,15 @@
                         }
                       },
                       {
+                        "id": "w_temp_f",
+                        "type": "Text",
+                        "props": {
+                          "data": {
+                            "$bind": "n_tempFText.out"
+                          }
+                        }
+                      },
+                      {
                         "id": "w_wind",
                         "type": "Text",
                         "props": {
@@ -250,6 +259,25 @@
         "type": "Computed"
       },
       {
+        "dartType": "double",
+        "expr": "forecast?.currentWeather.temperature ?? 0",
+        "id": "n_tempC",
+        "inputs": {
+          "forecast": "Forecast?"
+        },
+        "name": "temperatureCelsius",
+        "type": "Computed"
+      },
+      {
+        "id": "n_tempF",
+        "type": "Fahrenheit"
+      },
+      {
+        "id": "n_tempFText",
+        "template": "{0} °F",
+        "type": "Format"
+      },
+      {
         "dartType": "String",
         "expr": "forecast == null ? '' : 'Wind ${forecast.currentWeather.windspeed} km/h'",
         "id": "n_windText",
@@ -311,6 +339,18 @@
         "to": "n_windText.forecast"
       },
       {
+        "from": "n_forecast.value",
+        "to": "n_tempC.forecast"
+      },
+      {
+        "from": "n_tempC.out",
+        "to": "n_tempF.celsius"
+      },
+      {
+        "from": "n_tempF.out",
+        "to": "n_tempFText.args[0]"
+      },
+      {
         "from": "ev_city.fire",
         "to": "a_city.exec"
       },
@@ -352,6 +392,18 @@
     "n_loading": [
       80.0,
       260.0
+    ],
+    "n_tempC": [
+      360.0,
+      400.0
+    ],
+    "n_tempF": [
+      620.0,
+      400.0
+    ],
+    "n_tempFText": [
+      860.0,
+      400.0
     ],
     "n_url": [
       340.0,

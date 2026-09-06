@@ -122,6 +122,9 @@ class _HomePageState extends State<HomePage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    Text(
+                      '${((_temperatureCelsius(forecast.value)) * 9 / 5 + 32)} °F',
+                    ),
                     Text(_windText(forecast.value)),
                   ],
                 ),
@@ -147,6 +150,9 @@ bool _hasForecast(Forecast? forecast) => forecast != null;
 // n_tempText
 String _temperatureText(Forecast? forecast) =>
     forecast == null ? '—' : '${forecast.currentWeather.temperature} °C';
+// n_tempC
+double _temperatureCelsius(Forecast? forecast) =>
+    forecast?.currentWeather.temperature ?? 0;
 // n_windText
 String _windText(Forecast? forecast) =>
     forecast == null ? '' : 'Wind ${forecast.currentWeather.windspeed} km/h';

@@ -11,6 +11,11 @@ import 'render.dart';
 /// chain, a plain `build` — because that is what a Flutter developer would
 /// have written by hand, and because those anchors are what a future
 /// graph ↔ code round trip would key off (R18).
+/// `dart:` and `package:` imports pass through; everything else is a path
+/// relative to `lib/`, and pages live one directory below it.
+String _resolveImport(String import) =>
+    import.contains(':') ? import : '../$import';
+
 class PageEmitter {
   const PageEmitter();
 
@@ -34,8 +39,11 @@ class PageEmitter {
           for (final prefab in ir.usedPrefabs)
             Directive.import('../prefabs/$prefab'),
           // Hand-written helpers the graph calls into (§7.8). Pages live one
-          // level down from lib/, so the paths are relative to that.
-          for (final import in ir.extraImports) Directive.import('../$import'),
+          // level down from lib/, so a project-relative path gets `../`.
+          // A URI that names its own scheme — `dart:math`, `package:…` — is
+          // already absolute and must be left alone.
+          for (final import in ir.extraImports)
+            Directive.import(_resolveImport(import)),
         ])
         ..body.addAll([
           if (ir.isStateful)

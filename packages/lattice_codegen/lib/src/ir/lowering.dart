@@ -247,7 +247,7 @@ class _PageLowering {
   void _collectHelpers() {
     for (final node in graph.nodes) {
       if (node.type != 'Computed' && node.type != 'DartCode') continue;
-      final schema = NodeRegistry.forNode(node)!;
+      final schema = ctx.nodes.forNode(node)!;
       final returnType = ctx.resolve(node.get<String>('dartType'));
       _noteModelUse(returnType);
 
@@ -311,7 +311,7 @@ class _PageLowering {
     final candidates = <PinRef>[];
 
     for (final node in graph.nodes) {
-      final schema = NodeRegistry.forNode(node);
+      final schema = ctx.nodes.forNode(node);
       if (schema == null) continue;
       if (schema.category != NodeCategory.compute &&
           schema.category != NodeCategory.escape) {
@@ -337,7 +337,7 @@ class _PageLowering {
 
     for (final ref in candidates) {
       final node = graph.node(ref.nodeId)!;
-      final schema = NodeRegistry.forNode(node)!;
+      final schema = ctx.nodes.forNode(node)!;
       final type = schema.output(node, ctx, ref.pin)!.type;
       _noteModelUse(type);
       final body = _lowerPin(ref, skipHoist: ref);
@@ -655,6 +655,10 @@ class _PageLowering {
         return Emitted.plain(refer(payload));
 
       default:
+        final custom = ctx.nodes.definition(node.type);
+        if (custom != null && !custom.isAction) {
+          return _lowerCustomExpression(node, custom);
+        }
         throw CodegenException(
           'No lowering for node type "${node.type}".',
           pageId: unit.id,
@@ -951,12 +955,66 @@ class _PageLowering {
         ];
 
       default:
+        final custom = ctx.nodes.definition(action.type);
+        if (custom != null && custom.isAction) {
+          return [Code(_fillTemplate(action, custom).source)];
+        }
         throw CodegenException(
           'No lowering for action "${action.type}".',
           pageId: unit.id,
           nodeId: action.id,
         );
     }
+  }
+
+  /// A project-defined compute node (R20).
+  ///
+  /// The whole template is wrapped, not just each substitution: a template
+  /// like `{a} + {b}` used inside `x * …` would otherwise re-associate.
+  Emitted _lowerCustomExpression(GraphNode node, CustomNodeDef def) {
+    final filled = _fillTemplate(node, def);
+    return Emitted.plain(
+      CodeExpression(Code('(${filled.source})')),
+      signalDeps: filled.deps,
+    );
+  }
+
+  /// Substitutes `{pin}` in [def]'s template with each input's lowered
+  /// expression, and records the imports the template asked for.
+  ({String source, Set<String> deps}) _fillTemplate(
+    GraphNode node,
+    CustomNodeDef def,
+  ) {
+    for (final import in def.imports) {
+      if (import.isNotEmpty) extraImports.add(import);
+    }
+    final deps = <String>{};
+    final rendered = <String, String>{};
+    for (final pin in def.inputs) {
+      final emitted = _input(node, pin.name);
+      deps.addAll(emitted.signalDeps);
+      _noteModelUse(pin.type);
+      // Parenthesised: an input that is itself `a + b` must not bind loosely
+      // against whatever surrounds its placeholder in the template.
+      rendered[pin.name] = '(${renderExpression(emitted.bare())})';
+    }
+    final source = def.template.replaceAllMapped(
+      RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}'),
+      (match) {
+        final name = match.group(1)!;
+        final value = rendered[name];
+        if (value == null) {
+          throw CodegenException(
+            'Node "${def.type}" writes {$name}, which is not one of its '
+            'inputs.',
+            pageId: unit.id,
+            nodeId: node.id,
+          );
+        }
+        return value;
+      },
+    );
+    return (source: source, deps: deps);
   }
 
   /// A call to a server function (§7.7).

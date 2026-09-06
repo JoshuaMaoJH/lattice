@@ -20,6 +20,8 @@ export 'src/model/prefab.dart';
 export 'src/model/project.dart';
 export 'src/model/server_function.dart';
 export 'src/model/widget_unit.dart';
+export 'src/model/custom_node.dart';
+export 'src/schema/node_lookup.dart';
 export 'src/schema/node_registry.dart';
 export 'src/schema/node_schema.dart';
 export 'src/schema/pin_schema.dart';

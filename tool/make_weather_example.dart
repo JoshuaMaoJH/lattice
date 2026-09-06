@@ -15,6 +15,18 @@ Future<void> main() async {
       description: 'A Lattice example: fetch a forecast over HTTP and show it.',
       targets: [BuildTarget.linux, BuildTarget.web, BuildTarget.android],
     ),
+    // R20: the built-in library has no unit conversion and should not — this
+    // is the project's own vocabulary, so the project defines it.
+    customNodes: [
+      const CustomNodeDef(
+        type: 'Fahrenheit',
+        category: NodeCategory.compute,
+        summary: 'Celsius to Fahrenheit.',
+        inputs: [CustomPin(name: 'celsius', type: PrimitiveType.double_)],
+        outputs: [CustomPin(name: 'out', type: PrimitiveType.double_)],
+        template: '{celsius} * 9 / 5 + 32',
+      ),
+    ],
     models: [
       DataModelDef.fromJson(const {
         'name': 'Forecast',
@@ -57,6 +69,9 @@ Page _home() => Page(
       layout: const {
         'n_city': CanvasPos(80, 60),
         'n_forecast': CanvasPos(80, 160),
+        'n_tempC': CanvasPos(360, 400),
+        'n_tempF': CanvasPos(620, 400),
+        'n_tempFText': CanvasPos(860, 400),
         'n_loading': CanvasPos(80, 260),
         'n_error': CanvasPos(80, 360),
         'n_url': CanvasPos(340, 60),
@@ -184,6 +199,14 @@ WidgetNode _hierarchy() => WidgetNode(
                           },
                         ),
                         WidgetNode(
+                          id: 'w_temp_f',
+                          type: 'Text',
+                          props: {
+                            'data':
+                                const BindProp(PinRef('n_tempFText', 'out')),
+                          },
+                        ),
+                        WidgetNode(
                           id: 'w_wind',
                           type: 'Text',
                           props: {
@@ -286,6 +309,24 @@ Graph _graph() => Graph(
                 r"forecast == null ? '—' : '${forecast.currentWeather.temperature} °C'",
           },
         ),
+        // The graph reaches into the model, the project's own node does the
+        // arithmetic, and Format renders it. No hand-written Dart involved.
+        GraphNode(
+          id: 'n_tempC',
+          type: 'Computed',
+          config: const {
+            'name': 'temperatureCelsius',
+            'dartType': 'double',
+            'inputs': {'forecast': 'Forecast?'},
+            'expr': 'forecast?.currentWeather.temperature ?? 0',
+          },
+        ),
+        GraphNode(id: 'n_tempF', type: 'Fahrenheit'),
+        GraphNode(
+          id: 'n_tempFText',
+          type: 'Format',
+          config: const {'template': '{0} °F'},
+        ),
         GraphNode(
           id: 'n_windText',
           type: 'Computed',
@@ -332,6 +373,9 @@ Graph _graph() => Graph(
             PinRef('n_forecast', 'value'), PinRef('n_hasForecast', 'forecast')),
         Edge(PinRef('n_forecast', 'value'), PinRef('n_tempText', 'forecast')),
         Edge(PinRef('n_forecast', 'value'), PinRef('n_windText', 'forecast')),
+        Edge(PinRef('n_forecast', 'value'), PinRef('n_tempC', 'forecast')),
+        Edge(PinRef('n_tempC', 'out'), PinRef('n_tempF', 'celsius')),
+        Edge(PinRef('n_tempF', 'out'), PinRef('n_tempFText', 'args', index: 0)),
         Edge(PinRef('ev_city', 'fire'), PinRef('a_city', 'exec')),
         Edge(PinRef('ev_city', 'payload'), PinRef('a_city', 'value')),
         Edge(PinRef('ev_fetch', 'fire'), PinRef('a_fetch', 'exec')),

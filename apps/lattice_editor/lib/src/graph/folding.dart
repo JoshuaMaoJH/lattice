@@ -122,7 +122,7 @@ final class FoldMap {
   }) {
     final node = unit.graph.node(ref.nodeId);
     if (node == null) return PinKind.data;
-    final schema = NodeRegistry.lookup(node.type);
+    final schema = context.nodes.lookup(node.type);
     final pin = isInput
         ? schema?.input(node, context, ref.pin)
         : schema?.output(node, context, ref.pin);

@@ -79,6 +79,11 @@ class EditorController extends ChangeNotifier {
   GenerationResult? _generatedCache;
 
   Project get project => _project;
+
+  /// Node kinds available here: the built-in library plus whatever this
+  /// project defines for itself (R20). Rebuilt on every read because a
+  /// project edit can add a definition.
+  NodeLookup get nodes => NodeLookup(_project);
   String? get projectRoot => _projectRoot;
   Selection get selection => _selection;
   PendingBinding? get pendingBinding => _pendingBinding;

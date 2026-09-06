@@ -1,0 +1,18 @@
+{
+  "type": "Fahrenheit",
+  "category": "compute",
+  "summary": "Celsius to Fahrenheit.",
+  "inputs": [
+    {
+      "name": "celsius",
+      "type": "double"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "out",
+      "type": "double"
+    }
+  ],
+  "template": "{celsius} * 9 / 5 + 32"
+}
