@@ -374,8 +374,8 @@
     </p>
     <div class="meta">
       <span class="chip">MIT</span>
-      <span class="chip">M0 – M3 完成</span>
-      <span class="chip">186 个测试</span>
+      <span class="chip">M0 – M3 完成，M4 进行中</span>
+      <span class="chip">193 个测试</span>
       <span class="chip">5 个示例工程</span>
       <span class="chip">23.8k 行 Dart</span>
     </div>
@@ -529,7 +529,7 @@
       </div>
       <div class="row">
         <span class="stage">M4</span>
-        <p>跨宿主构建矩阵、签名流程、文档与开源发布</p>
+        <p>已开源，CI 全绿；跨宿主矩阵、签名文档、Linux 打包已验证</p>
         <span class="state going">进行中</span>
       </div>
     </div>
@@ -539,6 +539,7 @@
       <div class="figure"><b>265<small>ms</small></b><span>热重载往返</span></div>
       <div class="figure"><b>51</b><span>节点的示例，折叠后单屏可读</span></div>
       <div class="figure"><b>6.6<small>MB</small></b><span>服务端自包含二进制</span></div>
+      <div class="figure"><b>9.1<small>MB</small></b><span>Linux AppImage</span></div>
     </div>
   </section>
 
@@ -574,7 +575,7 @@
     </div>
     <ul class="limits">
       <li>服务端<strong>没有部署过</strong>。生成的是零依赖 Dart 程序，扔到装了 Dart 的主机上就能跑，但这一步没验证。</li>
-      <li>Linux / Android 的<strong>打包没跑通</strong>，只产出过 web 的 zip——<code>flutter_distributor</code> 没装。</li>
+      <li><strong>Android 打包没跑通</strong>，缺整个 Android SDK。Linux 的 AppImage 与 <code>.deb</code>、以及 web 的 zip 已经验证过。</li>
       <li>编辑器<strong>没有多选</strong>，所以折叠的成员是在属性面板里以逗号分隔的 ID 列表编辑的。</li>
       <li>Prefab <strong>不收 children 和回调</strong>。回调意味着组件要往外发事件，那需要先想清楚它的形状。</li>
       <li>ForEach 模板里<strong>不能有自己的状态</strong>。每项一份的状态需要先解决身份问题，方案留了缝，还没做。</li>

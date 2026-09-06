@@ -44,14 +44,38 @@ class Packager {
           String projectDir, ProjectConfig config, BuildTarget target) =>
       p.join(projectDir, 'dist', target.id, config.semver);
 
-  /// Whether `flutter_distributor` is on PATH.
+  /// Whether `flutter_distributor` can actually be run.
+  ///
+  /// Checked by running it, not by looking for it on PATH: `pub global
+  /// activate` installs into `~/.pub-cache/bin`, which is not on PATH by
+  /// default, and "installed but invisible" is the state people actually end
+  /// up in.
   static bool get hasDistributor {
-    final which = Platform.isWindows ? 'where' : 'which';
-    try {
-      return Process.runSync(which, ['flutter_distributor']).exitCode == 0;
-    } on ProcessException {
-      return false;
+    for (final executable in _distributorCandidates) {
+      try {
+        if (Process.runSync(executable, ['--version']).exitCode == 0) {
+          _resolvedDistributor = executable;
+          return true;
+        }
+      } on ProcessException {
+        continue;
+      }
     }
+    return false;
+  }
+
+  static String? _resolvedDistributor;
+
+  /// PATH first, then the place `pub global activate` puts it.
+  static List<String> get _distributorCandidates {
+    final home = Platform.environment['HOME'] ??
+        Platform.environment['USERPROFILE'] ??
+        '';
+    return [
+      'flutter_distributor',
+      if (home.isNotEmpty)
+        p.join(home, '.pub-cache', 'bin', 'flutter_distributor'),
+    ];
   }
 
   Future<PackageOutcome> package(
@@ -76,26 +100,28 @@ class Packager {
     if (!hasDistributor) {
       return PackageOutcome.skipped(
         target,
-        'flutter_distributor is not installed. '
-        'Run `dart pub global activate flutter_distributor`, then '
-        '`lattice package --target ${target.id}` again. The generated '
-        'distribute_options.yaml already describes this target.',
+        'flutter_distributor could not be run. Install it with '
+        '`dart pub global activate flutter_distributor`, and make sure '
+        r'`$HOME/.pub-cache/bin` is on your PATH — activate puts it there but '
+        'does not add it. The generated distribute_options.yaml already '
+        'describes this target.',
       );
     }
 
+    // Note there is no --build-target-platform here: that flag forwards
+    // `--target-platform` to `flutter build`, which means an Android ABI, not
+    // a desktop platform. Passing "linux" to it produces an invalid build.
     final arguments = [
       'package',
       '--platform',
       target.id,
       '--targets',
       _distributorTargetsFor(target).join(','),
-      '--build-target-platform',
-      target.id,
     ];
     onLog?.call('flutter_distributor ${arguments.join(' ')}');
 
     final process = await Process.start(
-      'flutter_distributor',
+      _resolvedDistributor ?? 'flutter_distributor',
       arguments,
       workingDirectory: buildDir,
       mode: ProcessStartMode.inheritStdio,

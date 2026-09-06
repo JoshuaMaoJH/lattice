@@ -112,6 +112,22 @@ AppImage 与 `.deb` 通常不签名，靠分发渠道背书。要签的话：
 
 ## 现状
 
-`lattice package` 目前产出**未签名**的包。上面这些步骤要手动跑。把它们接进
+`lattice package` 产出**未签名**的包。上面这些步骤要手动跑。把它们接进
 `lattice package` 是 M4 之后的活；先有文档，是因为一个签不了名的包，用户装不上，
 而「装不上」比「没自动化」严重得多。
+
+Linux 的两种格式已经验证过：`lattice package <工程> -t linux` 出 AppImage 与
+`.deb`，两者都不需要签名。前置条件是：
+
+```bash
+dart pub global activate flutter_distributor
+export PATH="$PATH:$HOME/.pub-cache/bin"        # activate 不会替你加
+
+# AppImage 还需要 appimagetool（单文件，不需要 sudo）
+curl -L -o ~/.local/bin/appimagetool \
+  https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+chmod +x ~/.local/bin/appimagetool
+```
+
+`.deb` 只要 `dpkg-deb` 与 `fakeroot`，Ubuntu 上本来就有。`rpm` 需要 `rpmbuild`
+（`sudo apt install rpm`），Lattice 目前不为它生成配置。

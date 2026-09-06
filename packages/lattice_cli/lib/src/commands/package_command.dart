@@ -2,6 +2,7 @@ import 'package:lattice_build/lattice_build.dart';
 import 'package:lattice_core/lattice_core.dart';
 import 'package:path/path.dart' as p;
 
+import '../prepare.dart';
 import '../project_locator.dart';
 import 'base.dart';
 
@@ -72,9 +73,30 @@ class PackageCommand extends LatticeCommand {
       return 1;
     }
 
+    // Packaging runs `flutter build` (via flutter_distributor), so the
+    // platform directories have to exist first. Skipping this is what made
+    // `lattice package` answer "No Linux desktop project configured" for
+    // anyone who had not already run `lattice build --target linux`.
+    console.step('Preparing ${p.relative(buildDir)}…');
+    final prepared = await prepareProject(
+      project,
+      root,
+      buildable,
+      onLog: console.step,
+    );
+    if (!prepared.isReady) {
+      console.error(prepared.failure!);
+      return prepared.exitCode;
+    }
+
     var failures = 0;
     for (final target in buildable) {
-      if (argResults?['build'] as bool? ?? true) {
+      // Only web needs a build from us: we zip its output ourselves. Every
+      // other target goes through flutter_distributor, which runs its own
+      // `flutter build` — doing it here too just builds everything twice.
+      final needsOurBuild =
+          target == BuildTarget.web && (argResults?['build'] as bool? ?? true);
+      if (needsOurBuild) {
         console.step('Building ${target.id} (${mode.flag})…');
         final outcome = await const FlutterBuild().build(
           buildDir,

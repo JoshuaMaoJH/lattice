@@ -33,7 +33,7 @@ jobs:
 
       - name: Test — pure Dart packages
         run: |
-          for package in lattice_core lattice_codegen lattice_server_gen; do
+          for package in lattice_core lattice_codegen lattice_server_gen lattice_build; do
             (cd "packages/$package" && dart test)
           done
 
