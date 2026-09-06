@@ -1,5 +1,7 @@
 # Lattice
 
+[![ci](https://github.com/JoshuaMaoJH/lattice/actions/workflows/ci.yml/badge.svg)](https://github.com/JoshuaMaoJH/lattice/actions/workflows/ci.yml)
+
 **用 Unity 式的层级树描述界面结构，用 Blender 式的节点图描述数据与逻辑，一键编译成真实的 Flutter 应用。**
 
 Lattice 把声明式 UI 的 `UI = f(state)` 公式画成一张图：Signal 进来，经过 Computed 变换，汇入 widget 参数；事件只做一件事——写 Signal。图里没有执行线，因为不需要。图编译成可读、可 `dart analyze` 零诊断、可随时 eject 的 Dart 源码。
