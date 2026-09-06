@@ -52,6 +52,9 @@ void main() {
         'README.md',
         '.gitignore',
         '.github/workflows/build.yml',
+        // R22: the release matrix is a second workflow — build.yml answers
+        // "does main still compile", this one cuts a release.
+        '.github/workflows/release.yml',
         'distribute_options.yaml',
       },
     );

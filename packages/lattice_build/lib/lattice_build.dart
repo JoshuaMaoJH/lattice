@@ -11,3 +11,4 @@ export 'src/host.dart';
 export 'src/packager.dart';
 export 'src/packaging_config.dart';
 export 'src/platform_scaffolder.dart';
+export 'src/signing.dart';

@@ -29,6 +29,16 @@ abstract interface class EditorHost {
   bool get canOpenProjects;
   bool get canRunPreview;
 
+  /// Which of [names] are set in this process's environment.
+  ///
+  /// Presence only. §7.9 keeps credentials out of project files; reading their
+  /// values into the editor would put them somewhere just as wrong.
+  Set<String> presentEnvironment(Iterable<String> names);
+
+  /// Whether the path in the environment variable [name] points at a file that
+  /// is actually there.
+  bool environmentPathExists(String name);
+
   /// Where the project browser should start: the last place the user opened
   /// something, or their home directory.
   Future<String> browseStart();
@@ -103,6 +113,12 @@ class MemoryHost implements EditorHost {
   Never _unavailable(String action) => throw UnsupportedError(
         '$action needs the desktop editor; this one is $description.',
       );
+
+  @override
+  Set<String> presentEnvironment(Iterable<String> names) => const {};
+
+  @override
+  bool environmentPathExists(String name) => false;
 
   @override
   Future<String> browseStart() async => _unavailable('Browsing');

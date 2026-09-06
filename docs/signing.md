@@ -6,8 +6,11 @@ Lattice 的立场（§7.9）：**凭据永远不进工程文件。** 它们放�
 配置目录里，由环境变量喂给构建。工程目录可以放心进 git、可以分享、可以被 LLM
 读——里面没有任何东西能签出一个冒充你的包。
 
-> 这一页是**流程文档，不是向导**。§7.9 计划把它做成编辑器里的向导，那是 M4 之后
-> 的事。下面每一节都链到官方文档，因为签名要求变化的速度比这份文件更新的速度快。
+> 编辑器工具栏上的盾牌图标是这一页的**清单版**（R22）：按目标列出要哪些环境变量、
+> 哪些已经设了、路径指向的文件在不在。它只读「有没有」，不读值，所以那一屏可以
+> 随便截图。这一页讲的是每个值**从哪来**。
+>
+> 下面每一节都链到官方文档，因为签名要求变化的速度比这份文件更新的速度快。
 
 ---
 
@@ -136,3 +139,21 @@ chmod +x ~/.local/bin/appimagetool
 
 `.deb` 只要 `dpkg-deb` 与 `fakeroot`，Ubuntu 上本来就有。`rpm` 需要 `rpmbuild`
 （`sudo apt install rpm`），Lattice 目前不为它生成配置。
+
+---
+
+## CI 上怎么给
+
+生成的工程里有两个 workflow：`build.yml` 回答「main 还编得过吗」，`release.yml`
+在打 `v*` tag 时出**可分发产物**并挂到 GitHub Release 上。
+
+签名凭据走仓库 secrets，由 workflow 塞进同样那几个环境变量。Android 的
+keystore 是二进制，所以以 base64 存进 `ANDROID_KEYSTORE_BASE64`，构建时解回一个
+文件——仓库里始终没有它。
+
+```bash
+base64 -w0 ~/.lattice/android.jks | gh secret set ANDROID_KEYSTORE_BASE64
+gh secret set ANDROID_KEY_ALIAS
+gh secret set ANDROID_STORE_PASSWORD
+gh secret set ANDROID_KEY_PASSWORD
+```

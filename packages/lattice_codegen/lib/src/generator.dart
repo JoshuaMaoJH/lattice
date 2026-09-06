@@ -92,6 +92,7 @@ class LatticeGenerator {
       files['.gitignore'] = support.gitignore();
       files['distribute_options.yaml'] = support.distributeOptions(project);
       files['.github/workflows/build.yml'] = support.ciWorkflow(project);
+      files['.github/workflows/release.yml'] = support.releaseWorkflow(project);
     } on CodegenException catch (e) {
       return GenerationResult(
         files: const {},

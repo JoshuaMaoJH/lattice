@@ -9,6 +9,7 @@ import 'panels/hierarchy_panel.dart';
 import 'panels/inspector_panel.dart';
 import 'panels/preview_panel.dart';
 import 'panels/project_browser.dart';
+import 'panels/signing_wizard.dart';
 import 'state/editor_controller.dart';
 import 'theme.dart';
 import 'widgets/chrome.dart';
@@ -88,6 +89,7 @@ class _EditorShellState extends State<EditorShell> {
                 onExport: _export,
                 onOpen: _openProject,
                 onNew: _newProject,
+                onSigning: _showSigning,
               ),
               const Hairline(),
               Expanded(child: _body()),
@@ -210,6 +212,12 @@ class _EditorShellState extends State<EditorShell> {
     }
   }
 
+  Future<void> _showSigning() => SigningWizard.show(
+        context,
+        widget.host,
+        controller.project.config.targets,
+      );
+
   Future<void> _openProject() async {
     if (!widget.host.canOpenProjects) {
       _say('Opening a project needs the desktop editor; you are in '
@@ -326,6 +334,7 @@ class _Toolbar extends StatelessWidget {
     required this.onExport,
     required this.onOpen,
     required this.onNew,
+    required this.onSigning,
   });
 
   final EditorController controller;
@@ -335,6 +344,7 @@ class _Toolbar extends StatelessWidget {
   final VoidCallback onExport;
   final VoidCallback onOpen;
   final VoidCallback onNew;
+  final VoidCallback onSigning;
 
   @override
   Widget build(BuildContext context) {
@@ -398,6 +408,11 @@ class _Toolbar extends StatelessWidget {
             icon: Icons.ios_share,
             tooltip: 'Export a standalone project',
             onPressed: onExport,
+          ),
+          ToolButton(
+            icon: Icons.verified_user_outlined,
+            tooltip: 'Signing: what each target needs',
+            onPressed: onSigning,
           ),
         ],
       ),

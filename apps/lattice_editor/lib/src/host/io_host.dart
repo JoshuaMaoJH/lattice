@@ -59,6 +59,19 @@ class IoHost implements EditorHost {
   }
 
   @override
+  Set<String> presentEnvironment(Iterable<String> names) => {
+        for (final name in names)
+          if ((Platform.environment[name] ?? '').trim().isNotEmpty) name,
+      };
+
+  @override
+  bool environmentPathExists(String name) {
+    final value = Platform.environment[name];
+    if (value == null || value.trim().isEmpty) return false;
+    return File(value).existsSync();
+  }
+
+  @override
   Future<String> browseStart() async {
     final recents = await recentProjects();
     for (final root in recents) {
