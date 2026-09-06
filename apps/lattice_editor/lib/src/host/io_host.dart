@@ -13,7 +13,11 @@ import 'editor_host.dart';
 
 /// The desktop host: real files, and a real `flutter run` to preview against.
 class IoHost implements EditorHost {
-  IoHost();
+  IoHost({String? configDirectory}) : _configDirectory = configDirectory;
+
+  /// Where per-user state goes. Injectable so a test never writes into the
+  /// real config directory of whoever is running it.
+  final String? _configDirectory;
 
   final _changes = StreamController<void>.broadcast();
   final List<String> _log = [];
@@ -39,8 +43,107 @@ class IoHost implements EditorHost {
   @override
   Stream<void> get previewChanges => _changes.stream;
 
+  /// Where the recent-projects list is kept.
+  ///
+  /// Not in the project and not next to the binary: it is a fact about this
+  /// user on this machine, so it belongs with their other per-user state.
+  File get _recentsFile {
+    final configured = _configDirectory;
+    if (configured != null) return File(p.join(configured, 'recent.json'));
+    final home = Platform.environment['HOME'] ??
+        Platform.environment['USERPROFILE'] ??
+        Directory.systemTemp.path;
+    final base =
+        Platform.environment['XDG_CONFIG_HOME'] ?? p.join(home, '.config');
+    return File(p.join(base, 'lattice', 'recent.json'));
+  }
+
   @override
-  Future<Project> open(String root) => ProjectIo.load(root);
+  Future<String> browseStart() async {
+    final recents = await recentProjects();
+    for (final root in recents) {
+      final parent = parentOf(root);
+      if (parent != null && Directory(parent).existsSync()) return parent;
+    }
+    return Platform.environment['HOME'] ??
+        Platform.environment['USERPROFILE'] ??
+        Directory.current.path;
+  }
+
+  @override
+  Future<List<DirectoryEntry>> browse(String path) async {
+    final dir = Directory(path);
+    if (!dir.existsSync()) return const [];
+    final entries = <DirectoryEntry>[];
+    for (final entity in dir.listSync(followLinks: false)) {
+      if (entity is! Directory) continue;
+      final name = p.basename(entity.path);
+      // Dotted directories are machinery, not somewhere a project lives.
+      if (name.startsWith('.')) continue;
+      entries.add(DirectoryEntry(
+        name: name,
+        path: entity.path,
+        isProject: File(p.join(entity.path, 'project.json')).existsSync(),
+      ));
+    }
+    entries
+        .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return entries;
+  }
+
+  @override
+  String? parentOf(String path) {
+    final parent = p.dirname(path);
+    return parent == path ? null : parent;
+  }
+
+  @override
+  Future<List<String>> recentProjects() async {
+    final file = _recentsFile;
+    if (!file.existsSync()) return const [];
+    try {
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! List) return const [];
+      return [
+        for (final entry in decoded)
+          if (entry is String &&
+              File(p.join(entry, 'project.json')).existsSync())
+            entry,
+      ];
+    } on Object {
+      // A corrupt list is not worth an error dialog on startup; the user loses
+      // their history, not their work.
+      return const [];
+    }
+  }
+
+  Future<void> _remember(String root) async {
+    final existing = await recentProjects();
+    final updated =
+        [root, ...existing.where((e) => e != root)].take(10).toList();
+    final file = _recentsFile;
+    await file.parent.create(recursive: true);
+    await file.writeAsString(jsonEncode(updated));
+  }
+
+  @override
+  Future<Project> createProject(String root, {String? appName}) async {
+    final directory = Directory(root);
+    if (directory.existsSync() && directory.listSync().isNotEmpty) {
+      throw StateError('"$root" already exists and is not empty.');
+    }
+    final project = Starter.project(p.basename(root), appName: appName);
+    await ProjectIo.save(project, root);
+    await _remember(root);
+    return project;
+  }
+
+  @override
+  Future<Project> open(String root) async {
+    final project = await ProjectIo.load(root);
+    await _remember(root);
+    return project;
+  }
 
   @override
   Future<void> save(Project project, String root) =>

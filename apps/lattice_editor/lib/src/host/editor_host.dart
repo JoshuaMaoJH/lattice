@@ -3,6 +3,19 @@ import 'package:lattice_core/lattice_core.dart';
 /// How the preview subprocess is doing.
 enum PreviewStatus { stopped, starting, running, failed }
 
+/// One directory the in-app browser can show.
+final class DirectoryEntry {
+  const DirectoryEntry(
+      {required this.name, required this.path, required this.isProject});
+
+  final String name;
+  final String path;
+
+  /// Whether this directory has a `project.json` — the browser marks these so
+  /// the user can see where to stop descending.
+  final bool isProject;
+}
+
 /// Everything the editor needs from the machine it is running on.
 ///
 /// Behind an interface because the editor is also compiled for the web, where
@@ -15,6 +28,23 @@ abstract interface class EditorHost {
 
   bool get canOpenProjects;
   bool get canRunPreview;
+
+  /// Where the project browser should start: the last place the user opened
+  /// something, or their home directory.
+  Future<String> browseStart();
+
+  /// The directories directly inside [path], sorted by name. Files are not
+  /// listed: a Lattice project is a directory, so a file is never a target.
+  Future<List<DirectoryEntry>> browse(String path);
+
+  /// The parent of [path], or null at the root.
+  String? parentOf(String path);
+
+  /// Project roots the user opened before, most recent first.
+  Future<List<String>> recentProjects();
+
+  /// Creates a new project in [root] and returns it.
+  Future<Project> createProject(String root, {String? appName});
 
   /// Loads the project rooted at [root].
   Future<Project> open(String root);
@@ -73,6 +103,23 @@ class MemoryHost implements EditorHost {
   Never _unavailable(String action) => throw UnsupportedError(
         '$action needs the desktop editor; this one is $description.',
       );
+
+  @override
+  Future<String> browseStart() async => _unavailable('Browsing');
+
+  @override
+  Future<List<DirectoryEntry>> browse(String path) async =>
+      _unavailable('Browsing');
+
+  @override
+  String? parentOf(String path) => null;
+
+  @override
+  Future<List<String>> recentProjects() async => const [];
+
+  @override
+  Future<Project> createProject(String root, {String? appName}) async =>
+      _unavailable('Creating a project');
 
   @override
   Future<Project> open(String root) async => _unavailable('Opening a project');

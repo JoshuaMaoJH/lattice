@@ -8,6 +8,7 @@ import 'panels/graph_panel.dart';
 import 'panels/hierarchy_panel.dart';
 import 'panels/inspector_panel.dart';
 import 'panels/preview_panel.dart';
+import 'panels/project_browser.dart';
 import 'state/editor_controller.dart';
 import 'theme.dart';
 import 'widgets/chrome.dart';
@@ -68,6 +69,10 @@ class _EditorShellState extends State<EditorShell> {
         const SingleActivator(LogicalKeyboardKey.keyY, control: true):
             controller.redo,
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
+        const SingleActivator(LogicalKeyboardKey.keyO, control: true):
+            _openProject,
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true):
+            _newProject,
       },
       child: Focus(
         autofocus: true,
@@ -81,6 +86,8 @@ class _EditorShellState extends State<EditorShell> {
                 onSave: _save,
                 onBuild: _build,
                 onExport: _export,
+                onOpen: _openProject,
+                onNew: _newProject,
               ),
               const Hairline(),
               Expanded(child: _body()),
@@ -188,6 +195,75 @@ class _EditorShellState extends State<EditorShell> {
     });
   }
 
+  /// Opening and creating both come back through here, because both end with
+  /// "this controller now holds a different project rooted somewhere else".
+  Future<void> _adopt(ProjectChoice choice) async {
+    try {
+      final project = choice.isNew
+          ? await widget.host
+              .createProject(choice.path, appName: choice.appName)
+          : await widget.host.open(choice.path);
+      controller.load(project, projectRoot: choice.path);
+      _say('${choice.isNew ? 'Created' : 'Opened'} ${choice.path}');
+    } on Object catch (error) {
+      _say('Could not open ${choice.path}: $error');
+    }
+  }
+
+  Future<void> _openProject() async {
+    if (!widget.host.canOpenProjects) {
+      _say('Opening a project needs the desktop editor; you are in '
+          '${widget.host.description}.');
+      return;
+    }
+    if (!await _confirmDiscard('Open another project')) return;
+    if (!mounted) return;
+    final choice = await ProjectBrowser.show(context, widget.host);
+    if (choice == null || !mounted) return;
+    await _adopt(choice);
+  }
+
+  Future<void> _newProject() async {
+    if (!widget.host.canOpenProjects) {
+      _say('Creating a project writes files, which needs the desktop editor.');
+      return;
+    }
+    if (!await _confirmDiscard('Create a new project')) return;
+    if (!mounted) return;
+    final choice = await ProjectBrowser.show(
+      context,
+      widget.host,
+      mode: ProjectBrowserMode.create,
+    );
+    if (choice == null || !mounted) return;
+    await _adopt(choice);
+  }
+
+  /// Unsaved work is the one thing the editor cannot get back, so switching
+  /// projects asks before throwing it away.
+  Future<bool> _confirmDiscard(String action) async {
+    if (!controller.isDirty) return true;
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: LatticeTheme.panel,
+        title: const Text('Unsaved changes'),
+        content: Text('$action without saving this one?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return proceed ?? false;
+  }
+
   Future<void> _save() async {
     final root = controller.projectRoot;
     if (root == null || !widget.host.canOpenProjects) {
@@ -248,6 +324,8 @@ class _Toolbar extends StatelessWidget {
     required this.onSave,
     required this.onBuild,
     required this.onExport,
+    required this.onOpen,
+    required this.onNew,
   });
 
   final EditorController controller;
@@ -255,6 +333,8 @@ class _Toolbar extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onBuild;
   final VoidCallback onExport;
+  final VoidCallback onOpen;
+  final VoidCallback onNew;
 
   @override
   Widget build(BuildContext context) {
@@ -294,8 +374,19 @@ class _Toolbar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           ToolButton(
+            icon: Icons.folder_open_outlined,
+            tooltip: 'Open a project  (Ctrl+O)',
+            onPressed: onOpen,
+          ),
+          ToolButton(
+            icon: Icons.note_add_outlined,
+            tooltip: 'New project  (Ctrl+N)',
+            onPressed: onNew,
+          ),
+          const SizedBox(width: 8),
+          ToolButton(
             icon: Icons.save_outlined,
-            tooltip: 'Save the project',
+            tooltip: 'Save the project  (Ctrl+S)',
             onPressed: onSave,
           ),
           ToolButton(
