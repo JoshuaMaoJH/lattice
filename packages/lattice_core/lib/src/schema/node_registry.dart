@@ -473,6 +473,19 @@ class NodeRegistry {
       outputs: [_next],
     ),
 
+    NodeSchema.fixed(
+      type: 'ShowDialog',
+      category: NodeCategory.action,
+      summary: 'A modal alert with a title, a message and one dismiss button.',
+      configKeys: const ['dismissLabel'],
+      inputs: [
+        _exec,
+        PinSchema(name: 'title', type: _string, required: true),
+        PinSchema(name: 'message', type: _string, required: true),
+      ],
+      outputs: [_next],
+    ),
+
     // ---- escape hatch ------------------------------------------------------
     NodeSchema(
       type: 'DartCode',

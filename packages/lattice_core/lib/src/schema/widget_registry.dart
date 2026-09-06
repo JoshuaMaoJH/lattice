@@ -132,6 +132,7 @@ class WidgetRegistry {
         _child('appBar'),
         _child('floatingActionButton'),
         _child('drawer'),
+        _child('bottomNavigationBar'),
         _v('backgroundColor', _opt(_color)),
       ],
     ),
@@ -503,6 +504,173 @@ class WidgetRegistry {
       childArity: ChildArity.one,
       childrenParam: 'child',
       params: [_callback('onTap')],
+    ),
+
+    // ---- navigation shell -------------------------------------------------
+    // Scaffold grew a `bottomNavigationBar` slot to go with `drawer`; what
+    // was missing either way was anything to put in them.
+    WidgetSchema(
+      type: 'Drawer',
+      category: WidgetCategory.structure,
+      summary: 'The panel that slides in from the edge.',
+      childArity: ChildArity.one,
+      childrenParam: 'child',
+      params: [_v('backgroundColor', _opt(_color))],
+    ),
+    WidgetSchema(
+      type: 'DrawerHeader',
+      category: WidgetCategory.structure,
+      summary: 'The block at the top of a Drawer.',
+      childArity: ChildArity.one,
+      childrenParam: 'child',
+      params: [_v('padding', _opt(_insets))],
+    ),
+    WidgetSchema(
+      type: 'BottomNavigationBar',
+      category: WidgetCategory.structure,
+      constCtor: false,
+      summary: 'The bar of destinations along the bottom.',
+      params: [
+        _childList('items'),
+        _v('currentIndex', _int, def: 0),
+        _callback('onTap', payload: _int),
+        _v('backgroundColor', _opt(_color)),
+      ],
+    ),
+    WidgetSchema(
+      type: 'BottomNavigationBarItem',
+      category: WidgetCategory.structure,
+      summary: 'One destination in a BottomNavigationBar.',
+      params: [
+        _child('icon', req: true),
+        _v('label', _opt(_string)),
+      ],
+    ),
+    // Tabs need a controller. DefaultTabController supplies one from above, so
+    // TabBar and TabBarView stay plain constructor calls with no state of
+    // their own to manage.
+    WidgetSchema(
+      type: 'DefaultTabController',
+      category: WidgetCategory.structure,
+      summary: 'Supplies the tab controller TabBar and TabBarView look up.',
+      childArity: ChildArity.one,
+      childrenParam: 'child',
+      params: [
+        _v('length', _int, req: true),
+        _v('initialIndex', _int, def: 0),
+      ],
+    ),
+    WidgetSchema(
+      type: 'TabBar',
+      category: WidgetCategory.structure,
+      constCtor: false,
+      summary: 'The row of tabs. Needs a DefaultTabController above it.',
+      params: [_childList('tabs')],
+    ),
+    WidgetSchema(
+      type: 'Tab',
+      category: WidgetCategory.structure,
+      summary: 'One tab label.',
+      params: [
+        _v('text', _opt(_string)),
+        _child('icon'),
+      ],
+    ),
+    WidgetSchema(
+      type: 'TabBarView',
+      category: WidgetCategory.structure,
+      constCtor: false,
+      summary: 'The pages a TabBar switches between.',
+      childArity: ChildArity.many,
+      childrenParam: 'children',
+      params: const [],
+    ),
+
+    // ---- layout gaps ------------------------------------------------------
+    WidgetSchema(
+      type: 'Positioned',
+      category: WidgetCategory.layout,
+      summary: 'Places a child at an offset inside a Stack.',
+      childArity: ChildArity.one,
+      childrenParam: 'child',
+      mustBeInside: const ['Stack'],
+      params: [
+        _v('left', _opt(_double)),
+        _v('top', _opt(_double)),
+        _v('right', _opt(_double)),
+        _v('bottom', _opt(_double)),
+        _v('width', _opt(_double)),
+        _v('height', _opt(_double)),
+      ],
+    ),
+    WidgetSchema(
+      type: 'GridView',
+      category: WidgetCategory.layout,
+      constructor: 'count',
+      constCtor: false,
+      summary: 'A fixed-column grid.',
+      childArity: ChildArity.many,
+      childrenParam: 'children',
+      params: [
+        _v('crossAxisCount', _int, req: true, def: 2),
+        _v('mainAxisSpacing', _double, def: 0.0),
+        _v('crossAxisSpacing', _double, def: 0.0),
+        _v('padding', _opt(_insets)),
+        _v('shrinkWrap', _bool, def: false),
+      ],
+    ),
+    WidgetSchema(
+      type: 'AspectRatio',
+      category: WidgetCategory.layout,
+      summary: 'Sizes its child to a given width/height ratio.',
+      childArity: ChildArity.one,
+      childrenParam: 'child',
+      params: [_v('aspectRatio', _double, req: true, def: 1.0)],
+    ),
+    // ClipRRect is deliberately absent: it is only useful with a
+    // `BorderRadius`, and that is a new literal type, not a new whitelist
+    // entry. Rounding a Container is already reachable through `decoration`.
+
+    // ---- content ----------------------------------------------------------
+    WidgetSchema(
+      type: 'Chip',
+      category: WidgetCategory.content,
+      constCtor: false,
+      summary: 'A compact labelled pill.',
+      params: [
+        _child('label', req: true),
+        _child('avatar'),
+        _v('backgroundColor', _opt(_color)),
+      ],
+    ),
+    WidgetSchema(
+      type: 'Tooltip',
+      category: WidgetCategory.content,
+      summary: 'Explains its child on hover or long press.',
+      childArity: ChildArity.one,
+      childrenParam: 'child',
+      params: [_v('message', _string, req: true)],
+    ),
+    WidgetSchema(
+      type: 'CircleAvatar',
+      category: WidgetCategory.content,
+      constCtor: false,
+      summary: 'A round avatar with a child or a background colour.',
+      childArity: ChildArity.one,
+      childrenParam: 'child',
+      params: [
+        _v('radius', _opt(_double)),
+        _v('backgroundColor', _opt(_color)),
+      ],
+    ),
+    WidgetSchema(
+      type: 'LinearProgressIndicator',
+      category: WidgetCategory.content,
+      summary: 'A determinate or indeterminate bar.',
+      params: [
+        _v('value', _opt(_double)),
+        _v('color', _opt(_color)),
+      ],
     ),
   ];
 }

@@ -71,6 +71,7 @@
 | `HttpRequest` | ▷ `exec`: Event<br>● `url*`: String | ▷ `next`: Event | `method`, `signal`, `loadingSignal`, `errorSignal`, `decode` | Fetches a URL and decodes the body into a Signal. The handler it sits in becomes async (R13). |
 | `ShowSnackBar` | ▷ `exec`: Event<br>● `message*`: String | ▷ `next`: Event | — | Shows a snack bar on the current Scaffold. |
 | `Print` | ▷ `exec`: Event<br>● `message*`: dynamic | ▷ `next`: Event | — | debugPrint, for tracing a graph. |
+| `ShowDialog` | ▷ `exec`: Event<br>● `title*`: String<br>● `message*`: String | ▷ `next`: Event | `dismissLabel` | A modal alert with a title, a message and one dismiss button. |
 
 ### 控制
 
@@ -95,7 +96,7 @@
 
 ## Widget 白名单
 
-共 37 个。白名单之外的 widget 通过 
+共 52 个。白名单之外的 widget 通过 
 `Dart Code` 节点接入（§7.8）。
 
 参数标记：`*` 必填，`⚡` 可绑定到图输出，`▷` 回调（接 Event 节点），
@@ -118,6 +119,9 @@
 | `Spacer` | — | ⚡ `flex`: int = `1` | Empty flexible space between Flex children. |
 | `Wrap` | n → `children` | ⚡ `spacing`: double = `0.0`<br>⚡ `runSpacing`: double = `0.0` | Lays children out in runs, wrapping as needed. |
 | `Divider` | — | ⚡ `height`: double?<br>⚡ `thickness`: double?<br>⚡ `color`: Color? | A one-pixel horizontal rule. |
+| `Positioned` | 1 → `child` | ⚡ `left`: double?<br>⚡ `top`: double?<br>⚡ `right`: double?<br>⚡ `bottom`: double?<br>⚡ `width`: double?<br>⚡ `height`: double? | Places a child at an offset inside a Stack. |
+| `GridView` † | n → `children` | ⚡ `crossAxisCount*`: int = `2`<br>⚡ `mainAxisSpacing`: double = `0.0`<br>⚡ `crossAxisSpacing`: double = `0.0`<br>⚡ `padding`: EdgeInsets?<br>⚡ `shrinkWrap`: bool = `false` | A fixed-column grid. |
+| `AspectRatio` | 1 → `child` | ⚡ `aspectRatio*`: double = `1.0` | Sizes its child to a given width/height ratio. |
 
 ### 内容
 
@@ -127,6 +131,10 @@
 | `Icon` | — | ⚡ `icon*`: IconData<br>⚡ `size`: double?<br>⚡ `color`: Color? | A glyph from an icon font. |
 | `Image` † | — | ⚡ `src*`: String<br>⚡ `width`: double?<br>⚡ `height`: double?<br>⚡ `fit`: BoxFit? | An image loaded over the network. |
 | `CircularProgressIndicator` | — | ⚡ `color`: Color? | An indeterminate spinner. |
+| `Chip` † | — | ◻ `label*`: Widget<br>◻ `avatar`: Widget<br>⚡ `backgroundColor`: Color? | A compact labelled pill. |
+| `Tooltip` | 1 → `child` | ⚡ `message*`: String | Explains its child on hover or long press. |
+| `CircleAvatar` † | 1 → `child` | ⚡ `radius`: double?<br>⚡ `backgroundColor`: Color? | A round avatar with a child or a background colour. |
+| `LinearProgressIndicator` | — | ⚡ `value`: double?<br>⚡ `color`: Color? | A determinate or indeterminate bar. |
 
 ### 输入
 
@@ -148,13 +156,21 @@
 
 | Widget | children | 参数 | 说明 |
 |---|---|---|---|
-| `Scaffold` | 1 → `body` | ◻ `appBar`: Widget<br>◻ `floatingActionButton`: Widget<br>◻ `drawer`: Widget<br>⚡ `backgroundColor`: Color? | Page shell: app bar, body, floating action button. |
+| `Scaffold` | 1 → `body` | ◻ `appBar`: Widget<br>◻ `floatingActionButton`: Widget<br>◻ `drawer`: Widget<br>◻ `bottomNavigationBar`: Widget<br>⚡ `backgroundColor`: Color? | Page shell: app bar, body, floating action button. |
 | `AppBar` † | — | ◻ `title`: Widget<br>◻ `leading`: Widget<br>◻… `actions`: List<Widget><br>⚡ `backgroundColor`: Color?<br>⚡ `centerTitle`: bool?<br>⚡ `elevation`: double? | Top bar with a title and actions. |
 | `ListView` † | n → `children` | ⚡ `padding`: EdgeInsets?<br>⚡ `shrinkWrap`: bool = `false`<br>⚡ `scrollDirection`: Axis = `vertical` | Scrolling list of children. |
 | `ListTile` | — | ◻ `title`: Widget<br>◻ `subtitle`: Widget<br>◻ `leading`: Widget<br>◻ `trailing`: Widget<br>▷ `onTap`: () | A single fixed-height row in a list. |
 | `Card` | 1 → `child` | ⚡ `elevation`: double?<br>⚡ `color`: Color?<br>⚡ `margin`: EdgeInsets? | Rounded, elevated surface. |
 | `SafeArea` | 1 → `child` | — | Insets its child away from system intrusions. |
 | `SingleChildScrollView` | 1 → `child` | ⚡ `padding`: EdgeInsets? | Makes an oversized child scrollable. |
+| `Drawer` | 1 → `child` | ⚡ `backgroundColor`: Color? | The panel that slides in from the edge. |
+| `DrawerHeader` | 1 → `child` | ⚡ `padding`: EdgeInsets? | The block at the top of a Drawer. |
+| `BottomNavigationBar` † | — | ◻… `items`: List<Widget><br>⚡ `currentIndex`: int = `0`<br>▷ `onTap`: (int)<br>⚡ `backgroundColor`: Color? | The bar of destinations along the bottom. |
+| `BottomNavigationBarItem` | — | ◻ `icon*`: Widget<br>⚡ `label`: String? | One destination in a BottomNavigationBar. |
+| `DefaultTabController` | 1 → `child` | ⚡ `length*`: int<br>⚡ `initialIndex`: int = `0` | Supplies the tab controller TabBar and TabBarView look up. |
+| `TabBar` † | — | ◻… `tabs`: List<Widget> | The row of tabs. Needs a DefaultTabController above it. |
+| `Tab` | — | ⚡ `text`: String?<br>◻ `icon`: Widget | One tab label. |
+| `TabBarView` † | n → `children` | — | The pages a TabBar switches between. |
 
 ### control
 

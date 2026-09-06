@@ -140,7 +140,6 @@ class Starter {
         },
       );
 
-
   static String packageName(String raw) {
     final cleaned = raw
         .toLowerCase()

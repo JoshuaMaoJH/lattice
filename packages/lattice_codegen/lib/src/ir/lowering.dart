@@ -776,8 +776,17 @@ class _PageLowering {
           );
         }
         trace.add(action.id);
+        final wasAsync = _chainIsAsync;
         statements.addAll(_lowerAction(action));
         edge = graph.outgoing(PinRef(action.id, 'next')).firstOrNull;
+
+        // Anything after an await runs at a time when this widget may already
+        // be gone. Guarding here rather than inside each action covers every
+        // pairing — CallServer then ShowSnackBar, ShowDialog then Navigate —
+        // and it is what analyze demands (use_build_context_synchronously).
+        if (!wasAsync && _chainIsAsync && edge != null && isStateful) {
+          statements.add(const Code('if (!mounted) return;'));
+        }
       }
 
       _payloadName = null;
@@ -947,6 +956,24 @@ class _PageLowering {
 
       case 'CallServer':
         return _lowerCallServer(action);
+
+      case 'ShowDialog':
+        // Awaited, so a chain that continues after it continues after the
+        // dialog closes rather than racing it.
+        _chainIsAsync = true;
+        final title = _input(action, 'title');
+        final message = _input(action, 'message');
+        final dismiss = _escape(action.get<String>('dismissLabel') ?? 'OK');
+        return [
+          Code('await showDialog<void>('
+              'context: context, '
+              'builder: (context) => AlertDialog('
+              'title: Text(${renderExpression(title.bare())}), '
+              'content: Text(${renderExpression(message.bare())}), '
+              'actions: [TextButton('
+              'onPressed: () => Navigator.of(context).pop(), '
+              "child: const Text('$dismiss'))]));"),
+        ];
 
       case 'Print':
         final message = _input(action, 'message');
@@ -1635,7 +1662,12 @@ class _PageLowering {
     switch (prop) {
       case LiteralProp(:final value):
         if (value == null && !param.required) return null;
-        if (param.defaultValue != null && value == param.defaultValue) {
+        // Dropping a value that equals the default keeps the call short, but
+        // a required parameter has no default to fall back on — Flutter would
+        // reject the call. `AspectRatio(aspectRatio: 1)` is worth the words.
+        if (!param.required &&
+            param.defaultValue != null &&
+            value == param.defaultValue) {
           return null;
         }
         _noteModelUse(param.type);
