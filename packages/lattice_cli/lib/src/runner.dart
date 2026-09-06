@@ -7,6 +7,7 @@ import 'commands/new_command.dart';
 import 'commands/package_command.dart';
 import 'commands/run_command.dart';
 import 'commands/targets_command.dart';
+import 'commands/text_command.dart';
 import 'console.dart';
 
 /// The `lattice` command line.
@@ -25,5 +26,6 @@ class LatticeCommandRunner extends CommandRunner<int> {
     addCommand(ExportCommand(output));
     addCommand(AnalyzeCommand(output));
     addCommand(TargetsCommand(output));
+    addCommand(TextCommand(output));
   }
 }

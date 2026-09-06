@@ -22,6 +22,8 @@ export 'src/model/server_function.dart';
 export 'src/model/widget_unit.dart';
 export 'src/model/custom_node.dart';
 export 'src/model/starter.dart';
+export 'src/text/lat_reader.dart';
+export 'src/text/lat_writer.dart';
 export 'src/schema/node_lookup.dart';
 export 'src/schema/node_registry.dart';
 export 'src/schema/node_schema.dart';
