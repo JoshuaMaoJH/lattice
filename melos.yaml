@@ -3,6 +3,10 @@ name: lattice
 # `lattice_runtime` is resolved on its own (see the note in pubspec.yaml), so
 # the Flutter-only steps target it explicitly.
 scripts:
+  bootstrap:
+    description: Resolve every package, including the one outside the workspace.
+    run: ./tool/bootstrap.sh
+
   analyze:
     description: Static analysis across every package.
     run: dart analyze packages/ tool/
@@ -42,6 +46,7 @@ scripts:
   ci:
     description: Everything CI runs.
     run: |
+      melos run bootstrap && \
       melos run format:check && \
       melos run analyze && \
       melos run test && \

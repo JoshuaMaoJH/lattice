@@ -4,7 +4,18 @@
 
 ```bash
 export PATH="$HOME/flutter/bin:$PATH"   # 如果 flutter 不在 PATH 上
-flutter pub get                          # 根目录，pub workspace 会带上所有包
+./tool/bootstrap.sh
+```
+
+**根目录一句 `flutter pub get` 是不够的。** `lattice_runtime` 故意不在 pub
+workspace 里——生成的工程要从 workspace 外面 path 依赖它，而 pub 不允许 path
+依赖指向成员包。代价就是它得单独 resolve 一次，`bootstrap.sh` 做的就是这个。
+
+编辑器的平台目录（`linux/`、`macos/`、`windows/`、`web/`）也不进版本控制，
+它们是生成物——和 Lattice 对待它生成的工程是同一个立场（§7.9）。要构建先补上：
+
+```bash
+cd apps/lattice_editor && flutter create --platforms=linux .
 ```
 
 ```bash

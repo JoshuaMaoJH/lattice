@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with: { channel: stable }
-      - run: flutter pub get
+      - run: ./tool/bootstrap.sh
 
       - name: Format
         run: dart format --output=none --set-exit-if-changed packages/ tool/ apps/lattice_editor/lib apps/lattice_editor/test
@@ -49,7 +49,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with: { channel: stable }
-      - run: flutter pub get
+      - run: ./tool/bootstrap.sh
 
       - name: Generate and analyze every example
         run: |
@@ -85,6 +85,14 @@ jobs:
         with: { channel: stable }
       - if: matrix.target == 'linux'
         run: sudo apt-get update && sudo apt-get install -y ninja-build libgtk-3-dev
-      - run: flutter pub get
+      - run: ./tool/bootstrap.sh
+
+      # Platform directories are generated, not versioned — the same stance
+      # Lattice takes for the projects it produces (§7.9 step 1). `flutter
+      # create` on an existing project adds only what is missing; it does not
+      # touch lib/.
+      - name: Add the platform directory
+        run: cd apps/lattice_editor && flutter create --platforms=${{ matrix.target }} .
+
       - name: Build the editor
         run: cd apps/lattice_editor && flutter build ${{ matrix.target }} --release
