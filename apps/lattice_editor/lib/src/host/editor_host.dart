@@ -1,5 +1,7 @@
 import 'package:lattice_core/lattice_core.dart';
 
+import 'debug_channel.dart';
+
 /// How the preview subprocess is doing.
 enum PreviewStatus { stopped, starting, running, failed }
 
@@ -81,6 +83,9 @@ abstract interface class EditorHost {
   /// Lines from the preview process, newest last.
   List<String> get previewLog;
 
+  /// What the running preview has reported about its own state (R21).
+  DebugChannel get dataFlow;
+
   /// Fires whenever [previewStatus] or [previewLog] changes.
   Stream<void> get previewChanges;
 }
@@ -106,6 +111,9 @@ class MemoryHost implements EditorHost {
 
   @override
   List<String> get previewLog => const [];
+
+  @override
+  final DebugChannel dataFlow = DebugChannel();
 
   @override
   Stream<void> get previewChanges => const Stream.empty();

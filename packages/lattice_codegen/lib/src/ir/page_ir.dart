@@ -151,6 +151,7 @@ final class PageIr {
     this.usesHttp = false,
     this.usesJson = false,
     this.usesRpc = false,
+    this.usesDebug = false,
     this.usedPrefabs = const [],
   });
 
@@ -190,6 +191,9 @@ final class PageIr {
   /// Whether the page calls a server function, and therefore needs the
   /// generated RPC stubs (§7.7).
   final bool usesRpc;
+
+  /// Whether this page reports state changes on the debug channel (R21).
+  final bool usesDebug;
 
   /// File names of the prefabs this unit places, for its imports (R9).
   final List<String> usedPrefabs;

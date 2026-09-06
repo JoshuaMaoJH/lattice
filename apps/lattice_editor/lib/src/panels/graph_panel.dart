@@ -5,6 +5,7 @@ import 'package:lattice_core/lattice_core.dart';
 import '../graph/folding.dart';
 import '../graph/graph_painters.dart';
 import '../graph/node_layout.dart';
+import '../host/debug_channel.dart';
 import '../state/editor_controller.dart';
 import '../state/project_edits.dart';
 import '../theme.dart';
@@ -16,9 +17,13 @@ import '../widgets/chrome.dart';
 /// are real widgets so text, hover and hit testing come for free; the lattice
 /// and the edges are painted underneath them.
 class GraphPanel extends StatefulWidget {
-  const GraphPanel({super.key, required this.controller});
+  const GraphPanel({super.key, required this.controller, this.dataFlow});
 
   final EditorController controller;
+
+  /// Live values from the preview, when one is running (R21). Null in tests
+  /// and wherever no preview exists.
+  final DebugChannel? dataFlow;
 
   @override
   State<GraphPanel> createState() => _GraphPanelState();
@@ -248,6 +253,8 @@ class _GraphPanelState extends State<GraphPanel> {
               left: rects[node.id]!.left,
               top: rects[node.id]!.top,
               child: _NodeCard(
+                observation: widget.dataFlow?.signals[node.id],
+                isRecent: widget.dataFlow?.isRecent(node.id) ?? false,
                 controller: controller,
                 node: node,
                 slots: slots[node.id]!,
@@ -672,6 +679,8 @@ class _GraphPanelState extends State<GraphPanel> {
 class _NodeCard extends StatefulWidget {
   const _NodeCard({
     required this.controller,
+    this.observation,
+    this.isRecent = false,
     required this.node,
     required this.slots,
     required this.isSelected,
@@ -684,6 +693,14 @@ class _NodeCard extends StatefulWidget {
   });
 
   final EditorController controller;
+
+  /// What the running app last reported for this node, if anything.
+  final SignalObservation? observation;
+
+  /// Whether it is among the last few writes, so the canvas can show *where*
+  /// the data flow just went rather than only listing it.
+  final bool isRecent;
+
   final GraphNode node;
   final List<PinSlot> slots;
   final bool isSelected;
@@ -723,10 +740,12 @@ class _NodeCardState extends State<_NodeCard> {
               border: Border.all(
                 color: hasError
                     ? LatticeTheme.error
-                    : widget.isSelected
-                        ? LatticeTheme.selectionEdge
-                        : LatticeTheme.hairlineBright,
-                width: widget.isSelected ? 1.5 : 1,
+                    : widget.isRecent
+                        ? LatticeTheme.warning
+                        : widget.isSelected
+                            ? LatticeTheme.selectionEdge
+                            : LatticeTheme.hairlineBright,
+                width: widget.isSelected || widget.isRecent ? 1.5 : 1,
               ),
               borderRadius: BorderRadius.circular(4),
               boxShadow: widget.isSelected
@@ -742,6 +761,7 @@ class _NodeCardState extends State<_NodeCard> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _header(schema, problems),
+                if (widget.observation != null) _liveValue(widget.observation!),
                 const SizedBox(height: NodeLayout.padTop),
                 for (final slot in widget.slots) _pinRow(slot),
               ],
@@ -751,6 +771,22 @@ class _NodeCardState extends State<_NodeCard> {
       ),
     );
   }
+
+  /// The value the running app last reported. Monospace because it is data,
+  /// not prose.
+  Widget _liveValue(SignalObservation observation) => Padding(
+        padding: const EdgeInsets.fromLTRB(10, 2, 10, 0),
+        child: Text(
+          '${observation.value}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: LatticeTheme.monoSmall.copyWith(
+            color: widget.isRecent
+                ? LatticeTheme.warning
+                : LatticeTheme.textSecondary,
+          ),
+        ),
+      );
 
   Widget _header(NodeSchema? schema, List<Diagnostic> problems) {
     return GestureDetector(

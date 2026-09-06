@@ -51,6 +51,8 @@ void main() {
         'analysis_options.yaml',
         'README.md',
         '.gitignore',
+        // R21: the data-flow channel the editor's panel reads.
+        'lib/debug.dart',
         '.github/workflows/build.yml',
         // R22: the release matrix is a second workflow — build.yml answers
         // "does main still compile", this one cuts a release.

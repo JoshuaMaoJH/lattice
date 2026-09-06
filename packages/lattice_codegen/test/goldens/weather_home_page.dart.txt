@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:signals_flutter/signals_flutter.dart';
 
 import '../models.dart';
+import '../debug.dart';
 import '../custom/cities.dart';
 
 class HomePage extends StatefulWidget {
@@ -60,6 +61,7 @@ class _HomePageState extends State<HomePage> {
   // ev_city -> a_city
   void _onCityChanged(String value) {
     city.value = value;
+    LatticeDebug.value('n_city', city.value);
   }
 
   // ev_fetch -> a_fetch

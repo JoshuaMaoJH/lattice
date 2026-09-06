@@ -88,6 +88,10 @@ class _PageLowering {
   bool _usesJson = false;
   bool _usesRpc = false;
 
+  /// Whether anything in this page reports on the debug channel, so the import
+  /// is only emitted where it is used.
+  bool _usesDebug = false;
+
   /// Set while lowering one handler; an awaited action flips it.
   bool _chainIsAsync = false;
 
@@ -121,6 +125,7 @@ class _PageLowering {
       usesHttp: _usesHttp,
       usesJson: _usesJson,
       usesRpc: _usesRpc,
+      usesDebug: _usesDebug,
       usedPrefabs: usedPrefabs.toList(),
     );
   }
@@ -871,6 +876,17 @@ class _PageLowering {
     return chain;
   }
 
+  /// One line on the debug channel after a signal is written (R21).
+  ///
+  /// At the write site rather than on a subscription, because that works the
+  /// same for both reactive backends and it is what the panel actually wants
+  /// to show: which action changed what, in order.
+  List<Code> _trace(String? signalNodeId, String variable) {
+    if (signalNodeId == null) return const [];
+    _usesDebug = true;
+    return [Code("LatticeDebug.value('$signalNodeId', $variable.value);")];
+  }
+
   List<Code> _lowerAction(GraphNode action) {
     String signalName() {
       final id = action.get<String>('signal');
@@ -889,7 +905,10 @@ class _PageLowering {
       case 'SetSignal':
         final name = signalName();
         final value = _input(action, 'value');
-        return [Code('$name.value = ${renderExpression(value.bare())};')];
+        return [
+          Code('$name.value = ${renderExpression(value.bare())};'),
+          ..._trace(action.get<String>('signal'), name),
+        ];
 
       case 'UpdateSignal':
         final name = signalName();
@@ -901,11 +920,17 @@ class _PageLowering {
             nodeId: action.id,
           );
         }
-        return [Code('$name.value = ${_apply(fn, '$name.value')};')];
+        return [
+          Code('$name.value = ${_apply(fn, '$name.value')};'),
+          ..._trace(action.get<String>('signal'), name),
+        ];
 
       case 'ToggleSignal':
         final name = signalName();
-        return [Code('$name.value = !$name.value;')];
+        return [
+          Code('$name.value = !$name.value;'),
+          ..._trace(action.get<String>('signal'), name),
+        ];
 
       case 'Navigate':
         final route = action.get<String>('route');

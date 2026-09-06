@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lattice_core/lattice_core.dart';
 
 import 'host/editor_host.dart';
+import 'panels/data_flow_panel.dart';
 import 'panels/diagnostics_panel.dart';
 import 'panels/graph_panel.dart';
 import 'panels/hierarchy_panel.dart';
@@ -116,7 +117,12 @@ class _EditorShellState extends State<EditorShell> {
                 Expanded(
                   child: Row(
                     children: [
-                      Expanded(child: GraphPanel(controller: controller)),
+                      Expanded(
+                        child: GraphPanel(
+                          controller: controller,
+                          dataFlow: widget.host.dataFlow,
+                        ),
+                      ),
                       SplitHandle(
                         axis: Axis.horizontal,
                         onDrag: (delta) => setState(
@@ -143,7 +149,10 @@ class _EditorShellState extends State<EditorShell> {
                 ),
                 SizedBox(
                   height: _problemsHeight,
-                  child: DiagnosticsPanel(controller: controller),
+                  child: _BottomTabs(
+                    controller: controller,
+                    host: widget.host,
+                  ),
                 ),
               ],
             ),
@@ -418,6 +427,62 @@ class _Toolbar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Problems and data flow share the bottom strip: both answer "what is wrong
+/// / what is happening", and neither is worth a permanent third of the screen.
+class _BottomTabs extends StatefulWidget {
+  const _BottomTabs({required this.controller, required this.host});
+
+  final EditorController controller;
+  final EditorHost host;
+
+  @override
+  State<_BottomTabs> createState() => _BottomTabsState();
+}
+
+class _BottomTabsState extends State<_BottomTabs> {
+  bool _showFlow = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final problems = widget.controller.diagnostics.diagnostics.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            _tab('Problems${problems == 0 ? '' : '  $problems'}', !_showFlow,
+                () => setState(() => _showFlow = false)),
+            _tab(
+                'Data flow', _showFlow, () => setState(() => _showFlow = true)),
+          ],
+        ),
+        const Hairline(),
+        Expanded(
+          child: _showFlow
+              ? DataFlowPanel(
+                  controller: widget.controller,
+                  host: widget.host,
+                )
+              : DiagnosticsPanel(controller: widget.controller),
+        ),
+      ],
+    );
+  }
+
+  Widget _tab(String label, bool active, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 7),
+          child: Text(
+            label,
+            style: active
+                ? LatticeTheme.eyebrow.copyWith(color: LatticeTheme.textPrimary)
+                : LatticeTheme.eyebrow,
+          ),
+        ),
+      );
 }
 
 /// One tab per page and prefab. Prefabs are marked but not separated — they

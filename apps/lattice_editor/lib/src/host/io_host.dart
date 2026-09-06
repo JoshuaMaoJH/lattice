@@ -9,6 +9,7 @@ import 'package:lattice_core/io.dart';
 import 'package:lattice_core/lattice_core.dart';
 import 'package:path/path.dart' as p;
 
+import 'debug_channel.dart';
 import 'editor_host.dart';
 
 /// The desktop host: real files, and a real `flutter run` to preview against.
@@ -228,6 +229,8 @@ class IoHost implements EditorHost {
 
     _log.clear();
     _setStatus(PreviewStatus.starting);
+    // Values from the previous process describe a program that is gone.
+    dataFlow.clear();
 
     final targetId = device ?? 'linux';
     final target = BuildTarget.fromId(targetId) ?? BuildTarget.linux;
@@ -307,7 +310,16 @@ class IoHost implements EditorHost {
     _setStatus(PreviewStatus.stopped);
   }
 
+  @override
+  final DebugChannel dataFlow = DebugChannel();
+
   void _append(String line) {
+    // Data-flow lines are machine traffic; they go to the panel, not into the
+    // log a person reads.
+    if (dataFlow.consume(line)) {
+      _changes.add(null);
+      return;
+    }
     _log.add(line);
     if (_log.length > 500) _log.removeAt(0);
     _changes.add(null);

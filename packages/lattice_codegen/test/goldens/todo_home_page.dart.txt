@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import '../models.dart';
+import '../debug.dart';
 import '../prefabs/stat_card.dart';
 import '../custom/labels.dart';
 
@@ -61,18 +62,23 @@ class _HomePageState extends State<HomePage> {
   // ev_input -> a_draft
   void _onInputChanged(String value) {
     draft.value = value;
+    LatticeDebug.value('n_draft', draft.value);
   }
 
   // ev_add -> a_bump -> a_append -> a_clear
   void _onAddPressed() {
     seq.value = seq.value + 1;
+    LatticeDebug.value('n_seq', seq.value);
     todos.value = [...todos.value, _buildTodo(seq.value, draft.value)];
+    LatticeDebug.value('n_todos', todos.value);
     draft.value = '';
+    LatticeDebug.value('n_draft', draft.value);
   }
 
   // ev_toggle -> a_toggle
   void _onCheckChanged(bool? value, Todo item, int index) {
     todos.value = (List.of(todos.value)..[index] = _toggle(item));
+    LatticeDebug.value('n_todos', todos.value);
   }
 
   // ev_tap -> a_open
@@ -86,6 +92,7 @@ class _HomePageState extends State<HomePage> {
   // ev_del -> a_remove
   void _onDelPressed(int index) {
     todos.value = (List.of(todos.value)..removeAt(index));
+    LatticeDebug.value('n_todos', todos.value);
   }
 
   @override

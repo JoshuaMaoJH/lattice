@@ -36,6 +36,7 @@ class PageEmitter {
           if (needsRuntime) Directive.import(_runtimeImport(config)),
           if (ir.usesModels) Directive.import('../models.dart'),
           if (ir.usesRpc) Directive.import('../rpc.dart'),
+          if (ir.usesDebug) Directive.import('../debug.dart'),
           for (final prefab in ir.usedPrefabs)
             Directive.import('../prefabs/$prefab'),
           // Hand-written helpers the graph calls into (§7.8). Pages live one

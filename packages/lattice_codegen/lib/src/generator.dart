@@ -90,6 +90,7 @@ class LatticeGenerator {
       files['analysis_options.yaml'] = support.analysisOptions(project);
       files['README.md'] = support.readme(project);
       files['.gitignore'] = support.gitignore();
+      files['lib/debug.dart'] = support.debugChannel();
       files['distribute_options.yaml'] = support.distributeOptions(project);
       files['.github/workflows/build.yml'] = support.ciWorkflow(project);
       files['.github/workflows/release.yml'] = support.releaseWorkflow(project);
