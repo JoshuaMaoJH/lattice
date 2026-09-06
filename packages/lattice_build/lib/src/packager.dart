@@ -133,7 +133,66 @@ class Packager {
         'flutter_distributor exited with $exitCode.',
       );
     }
-    return PackageOutcome.success(target, p.join(buildDir, 'dist'));
+    // flutter_distributor writes under its own `dist/<version>/` inside the
+    // build directory. §7.9 step 5 wants distributables beside the project,
+    // so they are collected into `dist/<target>/<version>/` — the same place
+    // the web zip lands. Otherwise `lattice package` leaves an empty
+    // directory and the real files somewhere the user never looks.
+    final collected =
+        await _collect(p.join(buildDir, 'dist'), destination.path, target);
+    if (collected.isEmpty) {
+      return PackageOutcome.skipped(
+        target,
+        'flutter_distributor reported success but left no '
+        '${target.id} artifact under $buildDir/dist.',
+      );
+    }
+    for (final artifact in collected) {
+      onLog?.call('-> ${p.relative(artifact, from: projectDir)}');
+    }
+    // Android produces two files; naming one of them would hide the other.
+    return PackageOutcome.success(
+      target,
+      collected.length == 1 ? collected.single : destination.path,
+    );
+  }
+
+  /// Whether [fileName] is an artifact for [target].
+  ///
+  /// flutter_distributor names artifacts app-version-platform.ext, so the
+  /// platform is the last dash-separated segment before the extension.
+  /// Matching the whole segment rather than a substring keeps a project named
+  /// `my-android-app` from claiming android's output when it builds linux.
+  static bool belongsTo(String fileName, BuildTarget target) {
+    final stem = p.basenameWithoutExtension(fileName);
+    final dash = stem.lastIndexOf('-');
+    return dash != -1 && stem.substring(dash + 1) == target.id;
+  }
+
+  /// Copies this target's artifacts out of [source] into [destination].
+  ///
+  /// Matched by name: flutter_distributor names every artifact
+  /// `<app>-<version>-<platform>.<ext>`, and one `dist/` accumulates every
+  /// platform ever built, so packaging linux must not pick up yesterday's apk.
+  Future<List<String>> _collect(
+    String source,
+    String destination,
+    BuildTarget target,
+  ) async {
+    final dir = Directory(source);
+    if (!dir.existsSync()) return const [];
+
+    final copied = <String>[];
+    for (final entity in dir.listSync(recursive: true)) {
+      if (entity is! File) continue;
+      final name = p.basename(entity.path);
+      if (!belongsTo(name, target)) continue;
+      final to = p.join(destination, name);
+      await entity.copy(to);
+      copied.add(to);
+    }
+    copied.sort();
+    return copied;
   }
 
   /// The formats worth producing per platform: something installable, and for

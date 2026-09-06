@@ -4,6 +4,7 @@
 |---|---|
 | [项目书](project-proposal.md) | 立项文档：目标、设计、里程碑。**其余一切的出处** |
 | [节点参考](node-reference.md) | 内置节点库。由 `tool/generate_node_reference.dart` 生成 |
+| [打包](packaging.md) | `lattice package` 需要宿主机上有什么 |
 | [签名与公证](signing.md) | 让产物**能装上**，不只是能构建 |
 | [决策记录](decisions/) | 做过的选择与代价，尤其是偏离项目书的那些 |
 | [项目页](site/) | 自包含的单页介绍，可直接部署 |

@@ -32,6 +32,11 @@ export LATTICE_ANDROID_KEY_PASSWORD=…
 lattice package examples/todo --target android
 ```
 
+这四个变量由 `AppMetadata` 注入进 `android/app/build.gradle.kts` 的 release
+签名配置读取。**没设这些变量时，release 构建落回 Flutter 的 debug key**——包能装
+上、能测，但不能上架，`apksigner verify --print-certs` 会看到
+`CN=Android Debug`。
+
 - `.apk` 直接发给别人装；`.aab` 上架 Play。
 - **备份 keystore。** 弄丢了就再也无法更新已上架的应用——Play 不接受换 key。
 - 官方：[Signing the app](https://docs.flutter.dev/deployment/android#signing-the-app)

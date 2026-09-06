@@ -35,6 +35,10 @@ class AppMetadata {
       'android/app/src/main/AndroidManifest.xml',
       (s) => _androidManifest(s, config),
     );
+    await edit(
+      'android/app/build.gradle.kts',
+      (s) => _androidGradle(s, config),
+    );
     await edit('macos/Runner/Configs/AppInfo.xcconfig',
         (s) => _macosAppInfo(s, config));
     await edit('windows/CMakeLists.txt', (s) => _windowsCMake(s, config));
@@ -88,6 +92,64 @@ class AppMetadata {
         RegExp(r'android:label="[^"]*"'),
         'android:label="${_escapeXml(config.appName)}"',
       );
+
+  /// Marks the signing block as already injected. `flutter create` runs once
+  /// but this runs on every build, so the edit has to be idempotent.
+  static const _signingMarker = '// lattice:signing';
+
+  /// Two edits.
+  ///
+  /// `applicationId` — the identity the app ships under, the Android
+  /// counterpart of macOS's `PRODUCT_BUNDLE_IDENTIFIER`. `namespace` is left
+  /// alone: it names the package the Kotlin sources actually declare, and the
+  /// manifest's `.MainActivity` resolves against it.
+  ///
+  /// The release signing config — §7.9 says credentials never enter project
+  /// files, so the keystore is read from the environment at build time. With
+  /// no keystore set this stays on Flutter's debug key, which is what makes
+  /// `lattice package -t android` work without any setup at all.
+  String _androidGradle(String source, ProjectConfig config) {
+    var out = source.replaceAll(
+      RegExp(r'applicationId = "[^"]*"'),
+      'applicationId = "${config.bundleId}"',
+    );
+    if (out.contains(_signingMarker)) return out;
+
+    out = out.replaceFirst(
+      RegExp(r'^android \{', multiLine: true),
+      '$_signingMarker\n'
+      'val latticeKeystore: String? = System.getenv("LATTICE_ANDROID_KEYSTORE")\n'
+      '\n'
+      'android {\n'
+      '    signingConfigs {\n'
+      '        if (latticeKeystore != null) {\n'
+      '            create("release") {\n'
+      '                storeFile = file(latticeKeystore)\n'
+      '                storePassword = '
+      'System.getenv("LATTICE_ANDROID_STORE_PASSWORD")\n'
+      '                keyAlias = System.getenv("LATTICE_ANDROID_KEY_ALIAS")\n'
+      '                keyPassword = '
+      'System.getenv("LATTICE_ANDROID_KEY_PASSWORD")\n'
+      '            }\n'
+      '        }\n'
+      '    }\n',
+    );
+
+    return out.replaceFirst(
+      RegExp(
+        r'// TODO: Add your own signing config[^\n]*\n'
+        r'\s*// Signing with the debug keys[^\n]*\n'
+        r'\s*signingConfig = signingConfigs\.getByName\("debug"\)',
+      ),
+      'signingConfig = if (latticeKeystore != null) {\n'
+      '                signingConfigs.getByName("release")\n'
+      '            } else {\n'
+      '                // No keystore in the environment: Flutter\'s debug key,\n'
+      '                // so a release build still produces an installable apk.\n'
+      '                signingConfigs.getByName("debug")\n'
+      '            }',
+    );
+  }
 
   String _macosAppInfo(String source, ProjectConfig config) => source
       .replaceAll(

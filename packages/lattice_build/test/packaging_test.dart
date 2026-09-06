@@ -8,6 +8,7 @@ import 'package:test/test.dart';
 /// What `lattice package` needs to exist before flutter_distributor will run
 /// (§7.9 step 4).
 void main() {
+  _artifactNaming();
   late Directory output;
 
   const config = ProjectConfig(
@@ -107,6 +108,41 @@ void main() {
           .write(output.path, config, [BuildTarget.web]);
       // Only the shared icon, which every project gets.
       expect(written, [PackagingConfig.iconPath]);
+    });
+  });
+}
+
+void _artifactNaming() {
+  group('artifact naming', () {
+    test('the platform is the segment before the extension', () {
+      expect(
+        Packager.belongsTo('todo_app-1.0.0+1-android.apk', BuildTarget.android),
+        isTrue,
+      );
+      expect(
+        Packager.belongsTo('todo_app-1.0.0+1-android.aab', BuildTarget.android),
+        isTrue,
+      );
+      expect(
+        Packager.belongsTo(
+            'todo_app-1.0.0+1-linux.AppImage', BuildTarget.linux),
+        isTrue,
+      );
+    });
+
+    test('one dist directory holds every platform, so it must not overreach',
+        () {
+      // The same `dist/1.0.0+1/` accumulates yesterday's builds.
+      expect(
+        Packager.belongsTo('todo_app-1.0.0+1-android.apk', BuildTarget.linux),
+        isFalse,
+      );
+      // A substring match would claim this one for android.
+      expect(
+        Packager.belongsTo(
+            'my-android-app-1.0.0-linux.deb', BuildTarget.android),
+        isFalse,
+      );
     });
   });
 }
