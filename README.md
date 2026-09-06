@@ -124,7 +124,7 @@ UPDATE_GOLDENS=1 dart test packages/lattice_codegen
 | **M1 MVP 编辑器** | ✅ 四面板 + 自研节点画布；R1–R8、R14、R15 |
 | **M2 真实小应用** | ✅ R9–R16 全部完成；Linux / Android / Web 三个宿主目标都真出过包 |
 | **M3 全栈** | ✅ Server Function → 可运行的服务端 + 类型化 RPC；真实往返已验证。未部署 |
-| M4 发布 | 打包与签名通路已验证（见[打包](docs/packaging.md)）；Windows / macOS 缺宿主机没跑 |
+| **M4 发布** | ✅ R17–R22 全部完成；打包与签名通路已验证（见[打包](docs/packaging.md)）。Windows / macOS 缺宿主机没跑 |
 
 ## 协议
 
