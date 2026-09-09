@@ -108,8 +108,7 @@ void main() {
 
   group('copy and paste', () {
     test('edges inside the selection come along', () {
-      final clipboard =
-          NodeClipboard.copyFrom(page(), {'n_count', 'n_fmt'});
+      final clipboard = NodeClipboard.copyFrom(page(), {'n_count', 'n_fmt'});
 
       expect(clipboard.nodes.map((n) => n.id), ['n_count', 'n_fmt']);
       expect(clipboard.edges, hasLength(1));

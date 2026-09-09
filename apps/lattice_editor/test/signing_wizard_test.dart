@@ -32,8 +32,8 @@ void main() {
   }
 
   testWidgets('a project with only unsigned targets says so', (tester) async {
-    await pump(tester, _EnvHost(const {}),
-        const [BuildTarget.linux, BuildTarget.web]);
+    await pump(
+        tester, _EnvHost(const {}), const [BuildTarget.linux, BuildTarget.web]);
 
     expect(find.textContaining('are code-signed'), findsOneWidget);
     expect(find.text('ANDROID'), findsNothing);
