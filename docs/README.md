@@ -9,6 +9,16 @@
 | [决策记录](decisions/) | 做过的选择与代价，尤其是偏离项目书的那些 |
 | [项目页](site/) | 自包含的单页介绍，可直接部署 |
 
+## 按需求找实现
+
+| | |
+|---|---|
+| R18 图 ↔ 文本 | `lattice text`；[ADR-014](decisions/014-text-form.md) |
+| R19 数据层 | `project.json` 的 `collections`；[examples/notes](../examples/notes/) |
+| R20 自定义节点 | 工程里的 `nodes/*.json`；[ADR-013](decisions/013-project-defined-nodes.md) |
+| R21 数据流调试 | 编辑器底部 Data flow 页签，数据来自预览进程的输出 |
+| R22 远程构建与签名 | 生成工程里的 `.github/workflows/release.yml`；[签名](signing.md) |
+
 ## 从哪读起
 
 想知道**这东西是什么**：项目书 §1、§5、§8。三页读完就明白了。

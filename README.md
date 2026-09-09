@@ -66,6 +66,50 @@ class _HomePageState extends State<HomePage> {
 | `lattice export <dir> -o <out>` | 导出脱离 Lattice 的独立工程（G5） |
 | `lattice analyze <dir>` | 只跑校验器，输出带节点 ID 的诊断 |
 | `lattice targets <dir>` | 本机能构建哪些平台，不能的为什么（ADR-006） |
+| `lattice package <dir> -t linux` | 出可分发产物到 `dist/`（见[打包](docs/packaging.md)） |
+| `lattice text <dir> --out text` | 把工程写成可读的 `.lat` 文本（R18） |
+| `lattice text <dir> --read` | 把改过的 `.lat` 读回工程 JSON |
+
+## 工程里有什么
+
+一个 Lattice 工程是一个目录，每样东西一个文件，便于 diff：
+
+| | |
+|---|---|
+| `project.json` | 应用名、包名、目标平台、以及 `collections` 声明 |
+| `pages/*.json` | 每页一个：Hierarchy + Graph + 画布坐标 |
+| `prefabs/*.json` | 可复用组件。参数类型写 `Widget` 就是子树槽位，写 `Event` 就是回调（R9） |
+| `server/*.json` | 跑在服务端的子图，客户端拿到类型化的调用桩（R17） |
+| `models/*.json` | 数据模型。序列化两边共用一份 |
+| `nodes/*.json` | 这个工程自己定义的节点：引脚 + 一段带 `{引脚名}` 占位符的模板（R20，[ADR-013](docs/decisions/013-project-defined-nodes.md)） |
+| `custom/*.dart` | 手写 Dart，图通过 `Dart Code` 节点调用，重新生成不覆盖 |
+
+**数据层**是 `project.json` 里的一行（R19）：
+
+```json
+"collections": [{"name": "notes", "of": "Note"}]
+```
+
+生成一个装在 signal 里的类型化列表，读是响应式的、写会落盘（原生写 JSON 文件，
+web 写 localStorage）。它**不是数据库**——没有索引、查询和迁移，整个列表一次读
+进内存一次写回去。见 [`examples/notes`](examples/notes/)。
+
+**文本形式**是无损的第二种写法（R18，[ADR-014](docs/decisions/014-text-form.md)）：
+
+```
+page Home #page_home route "/" home
+  hierarchy
+    Scaffold #w_root
+      Text #w_txt data=<n_fmt.out
+      ElevatedButton #w_btn onPressed=!ev_btn
+  graph
+    Signal #n_count dartType="int" init=0 name="count"
+  wires
+    n_count.value -> n_fmt.args[0]
+```
+
+`JSON → 文本 → JSON` 逐字段相等，所以它可以拿来做 code review、手改、或者让
+LLM 生成之后读回去。
 
 ## 仓库结构
 
@@ -94,6 +138,12 @@ cd apps/lattice_editor
 flutter run -d linux      # 桌面：真实文件 + flutter run 预览热重载
 flutter run -d chrome     # 浏览器：内存工程，看得见但存不下
 ```
+
+开工程用工具栏的打开按钮或 `Ctrl+O`（不给命令行参数时是一屏选择，不会闷头打开
+内置示例）。画布上 Ctrl/Shift 点击加减选中、空白处拖拽框选、`Ctrl+C/V/D` 复制
+粘贴、选中两个以上可以折叠成 Subgraph。底部 **Data flow** 页签显示运行中的预览
+每次状态变化（R21）——画布上对应的节点同时显示当前值。工具栏的盾牌是签名清单
+（R22）：按目标列出要哪些环境变量、哪些还空着，只读有没有、不读值。
 
 一条视觉规则贯穿全局：**颜色只表示类型**。中性色阶之外唯一饱和的像素是引脚、
 连线和类型徽章，色值来自 §7.3；选中用抬升与亮边表达，不用颜色；诊断是刻意的
